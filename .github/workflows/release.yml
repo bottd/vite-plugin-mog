@@ -12,19 +12,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS - native runners
           - target: x86_64-apple-darwin
             host: macos-latest
           - target: aarch64-apple-darwin
             host: macos-latest
-          # Linux gnu - napi-cross
           - target: x86_64-unknown-linux-gnu
             host: ubuntu-latest
             extra-args: '--use-napi-cross'
           - target: aarch64-unknown-linux-gnu
             host: ubuntu-latest
             extra-args: '--use-napi-cross'
-          # Linux musl - cargo-zigbuild
           - target: x86_64-unknown-linux-musl
             host: ubuntu-latest
             extra-args: '-x'
@@ -85,10 +82,7 @@ jobs:
           path: dist/napi
           merge-multiple: true
 
-      - name: Stage per-platform packages
-        # Each binding is ~160 MB, so they ship as optional per-platform
-        # packages; `files` keeps them out of the root tarball. They stay in
-        # dist/napi/ as well so the test run below has a binding to load.
+      - name: Stage platform packages
         run: |
           pnpm exec napi create-npm-dirs
           pnpm exec napi artifacts -d dist/napi --npm-dir npm
@@ -108,11 +102,10 @@ jobs:
       - name: Run JavaScript tests
         run: pnpm test
 
-      # `napi pre-publish` publishes the per-platform packages with a plain
-      # `npm publish`, which reads the ambient config rather than the temporary
-      # npmrc semantic-release writes for its own publish.
-      - name: Authenticate with npm
-        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+      - name: Authenticate npm
+        run: |
+          test -n "$NPM_TOKEN" || { echo "NPM_TOKEN required: OIDC cannot create packages that do not exist yet"; exit 1; }
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 

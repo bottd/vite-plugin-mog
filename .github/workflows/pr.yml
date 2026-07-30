@@ -29,3 +29,6 @@ jobs:
 
       - name: Run JavaScript tests
         run: pnpm test
+
+      - name: Build the example projects against dist/
+        run: pnpm run test:e2e

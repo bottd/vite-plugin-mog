@@ -138,7 +138,10 @@ tree-sitter. Set a theme to turn it on:
 
 ```typescript
 mogPlugin({ mode: 'html', theme: 'GitHub Dark' });
-mogPlugin({ mode: 'html', theme: { light: 'GitHub Light', dark: 'Tokyo Night' } });
+mogPlugin({
+  mode: 'html',
+  theme: { light: 'GitHub Light', dark: 'Tokyo Night' },
+});
 ```
 
 Themes are named for display, and any spelling that slugs the same works, so
@@ -188,6 +191,14 @@ In `html` mode the styles are inlined as a leading `<style>` tag instead, so the
 `html` export stays self-contained when you write it straight to a file. The
 trade-off is that document CSS skips Vite's CSS pipeline there: no PostCSS,
 minification, or extraction.
+
+## Examples
+
+`examples/` holds one small project per mode — [svelte](examples/svelte),
+[vue](examples/vue), [react](examples/react), [html](examples/html) — each
+rendering the same two documents, embeds and highlighting included:
+
+`pnpm test:e2e` builds all examples to test each output mode
 
 ## Requirements
 

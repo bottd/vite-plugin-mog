@@ -160,6 +160,12 @@ function injectComponentImports(
   return code;
 }
 
+/** Whether vite-plugin-svelte is set up to compile `.mg` files itself. */
+function svelteCompilesMog(plugins: readonly Plugin[]): boolean {
+  const config = plugins.find(plugin => plugin.name === 'vite-plugin-svelte:config');
+  return config?.api?.options?.extensions?.includes('.mg') ?? false;
+}
+
 export function mogPlugin(options: MogPluginOptions): Plugin {
   const { include, exclude, mode, theme, componentDir, components: explicitComponents } = options;
 
@@ -172,7 +178,8 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
   const filter = createFilter(include, exclude);
   const css = buildCss(theme);
   const ext = modeExtensions[mode];
-  const mogWithExt = ext ? `.mg${ext}` : null;
+  // Whether a resolved `.mg` id carries `ext` — see configResolved.
+  let appendExt = true;
 
   type ParseResult = Awaited<ReturnType<typeof parseMog>>;
   const parseCache = new Map<string, Promise<ParseResult>>();
@@ -253,8 +260,16 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
     name: 'vite-plugin-mog',
     enforce: 'pre',
 
-    configResolved(config) {
-      root = normalizePath(config.root);
+    configResolved: {
+      order: 'post',
+      handler(config) {
+        root = normalizePath(config.root);
+
+        // SvelteKit looks a route up in the Vite manifest by its path
+        if (mode === OutputMode.svelte && svelteCompilesMog(config.plugins)) {
+          appendExt = false;
+        }
+      },
     },
 
     async buildStart() {
@@ -277,7 +292,7 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
         return `\0${id}.css`;
       }
 
-      if (ext && id.endsWith('.mg')) {
+      if (ext && appendExt && id.endsWith('.mg')) {
         // No importer means a build entry; it resolves against the project root.
         const cleanImporter = importer ? cleanModuleId(importer) : undefined;
         // A generated module declares its Mog source as a watch dependency, and
@@ -288,7 +303,9 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
           (cleanImporter.endsWith(`.mg${ext}`) || cleanImporter.startsWith(VIRTUAL_DOC_CSS_PREFIX));
         if (isOwnWatchDependency) return;
 
-        const resolved = await this.resolve?.(id, cleanImporter, { skipSelf: true });
+        const resolved = await this.resolve?.(id, cleanImporter, {
+          skipSelf: true,
+        });
         const basePath = normalizePath(
           cleanModuleId(resolved?.id ?? resolve(cleanImporter ? dirname(cleanImporter) : root, id))
         );
@@ -305,13 +322,15 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
         const cleanImporter = cleanModuleId(importer);
         const resolved = isAbsolute(relativePath)
           ? undefined
-          : await this.resolve?.(relativePath, cleanImporter, { skipSelf: true });
+          : await this.resolve?.(relativePath, cleanImporter, {
+              skipSelf: true,
+            });
         const basePath = normalizePath(
           cleanModuleId(resolved?.id ?? resolve(dirname(cleanImporter), relativePath))
         );
         const index = parseInt(new URLSearchParams(query).get('embed') ?? '', 10);
         if (Number.isNaN(index)) return;
-        const resolvedId = `${basePath}${ext}?${query}`;
+        const resolvedId = `${basePath}${appendExt ? ext : ''}?${query}`;
         embedModules.set(resolvedId, { basePath, index });
         return resolvedId;
       }
@@ -357,7 +376,7 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
       const [idWithoutQuery, query] = rawId.split('?', 2);
       if (query && query !== 'metadata') return;
       let basePath = normalizePath(idWithoutQuery);
-      if (ext && mogWithExt && idWithoutQuery.endsWith(mogWithExt)) {
+      if (ext && idWithoutQuery.endsWith(`.mg${ext}`)) {
         basePath = idWithoutQuery.slice(0, -ext.length);
       }
       if (!basePath.endsWith('.mg') || !filter(basePath)) return;
@@ -375,7 +394,7 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
 
     async transform(code, id) {
       if (mode !== OutputMode.react) return;
-      if (!ext || !mogWithExt || !id.includes(mogWithExt)) return;
+      if (!ext || !id.includes(`.mg${ext}`)) return;
       return transformWithOxc(code, id, {
         lang: ext.slice(1) as 'jsx',
         jsx: { runtime: 'automatic' },

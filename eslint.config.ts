@@ -20,7 +20,7 @@ export default ts.config(
     },
   },
   {
-    ignores: ['dist/**', 'target/**', 'node_modules/**', '*.tgz', 'package-lock.json'],
+    ignores: ['**/dist/**', 'target/**', '**/node_modules/**', '*.tgz', 'package-lock.json'],
   },
   eslintConfigPrettier
 );

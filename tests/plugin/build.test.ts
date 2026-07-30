@@ -44,11 +44,10 @@ async function bundle(
     },
   });
   const output = (result as Rollup.RollupOutput[])[0].output;
+  const chunks = output.filter(chunk => chunk.type === 'chunk') as Rollup.OutputChunk[];
   return {
-    code: output
-      .filter(chunk => chunk.type === 'chunk')
-      .map(chunk => chunk.code)
-      .join('\n'),
+    moduleIds: chunks.flatMap(chunk => Object.keys(chunk.modules)),
+    code: chunks.map(chunk => chunk.code).join('\n'),
     css: output
       .filter(asset => asset.type === 'asset' && asset.fileName.endsWith('.css'))
       .map(asset => String((asset as Rollup.OutputAsset).source))
@@ -142,6 +141,29 @@ it('compiles a Mog document through vite-plugin-svelte', async () => {
     expect(code).toContain('Svelte Title');
     expect(code).toContain('counted');
     expect(css).toContain('rebeccapurple');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// Why the id has to survive: see configResolved in plugin.ts.
+it('keeps the Mog id when vite-plugin-svelte handles the extension', async () => {
+  const root = await scaffold({
+    'doc.mg': '# Kept\n',
+    'entry.js': "import Doc from './doc.mg';\nexport { Doc };\n",
+  });
+  try {
+    const { code, moduleIds } = await bundle(root, 'entry.js', { mode: 'svelte' }, [
+      svelte({
+        extensions: ['.svelte', '.mg'],
+        compilerOptions: { hmr: false },
+      }) as unknown as Plugin,
+    ]);
+
+    expect(moduleIds.filter(id => id.endsWith('.mg'))).toHaveLength(1);
+    // Still compiled, not passed through as SFC source.
+    expect(code).not.toContain('<script lang="ts" module>');
+    expect(code).toContain('Kept');
   } finally {
     await rm(root, { recursive: true, force: true });
   }
