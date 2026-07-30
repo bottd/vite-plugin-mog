@@ -57,8 +57,7 @@
     "lint:fix": "eslint . --fix",
     "check": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "build:examples": "pnpm --filter '@examples/*' build"
+    "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "keywords": [
     "vite",
@@ -90,7 +89,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@napi-rs/cli": "3.8.0",
+    "@napi-rs/cli": "3.8.1",
     "@semantic-release/changelog": "7.0.0",
     "@semantic-release/exec": "7.1.0",
     "@semantic-release/git": "11.0.1",
@@ -103,7 +102,8 @@
     "eslint-config-prettier": "10.1.8",
     "globals": "17.8.0",
     "jiti": "2.7.0",
-    "prettier": "3.8.3",
+    "playwright": "1.61.1",
+    "prettier": "3.9.6",
     "react": "19.2.8",
     "rimraf": "6.1.3",
     "semantic-release": "25.0.8",
@@ -120,11 +120,11 @@
     "url": "git+https://github.com/bottd/vite-plugin-mog.git"
   },
   "optionalDependencies": {
-    "vite-plugin-mog-darwin-x64": "0.2.0",
     "vite-plugin-mog-darwin-arm64": "0.2.0",
-    "vite-plugin-mog-linux-x64-gnu": "0.2.0",
+    "vite-plugin-mog-darwin-x64": "0.2.0",
     "vite-plugin-mog-linux-arm64-gnu": "0.2.0",
-    "vite-plugin-mog-linux-x64-musl": "0.2.0",
-    "vite-plugin-mog-linux-arm64-musl": "0.2.0"
+    "vite-plugin-mog-linux-arm64-musl": "0.2.0",
+    "vite-plugin-mog-linux-x64-gnu": "0.2.0",
+    "vite-plugin-mog-linux-x64-musl": "0.2.0"
   }
 }

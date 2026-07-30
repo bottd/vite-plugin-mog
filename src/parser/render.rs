@@ -142,11 +142,12 @@ impl Renderer {
                 }
                 self.blocks(content)?;
             }
+            // A free marker carries no meaning of its own: it is a grouping
+            // block, so it renders as one and whatever it captured renders in it.
             NodeKind::Marker(marker) if marker.kind == MarkerKind::Free => {
-                self.push_block(&format!("<hr{} />", class_attr(node)));
-                // A `=` alone on a line opens a block, so anything it captured
-                // still has to render — a break must not swallow the document.
+                self.push_block(&format!("<div{}>", class_attr(node)));
                 self.blocks(children(node))?;
+                self.push_block("</div>");
             }
             NodeKind::Paragraph => self.paragraph(children(node), &class_attr(node)),
             NodeKind::Table => self.table(node),
@@ -175,35 +176,44 @@ impl Renderer {
                 continue;
             };
 
-            while stack
-                .last()
-                .is_some_and(|&(open, level)| level > depth || (level == depth && open != kind))
-            {
+            // Each `>` is its own quote — several lines land in one quote only in
+            // block form, never across sibling markers. A list does collect its
+            // items, so only a blockquote closes on a same-depth sibling.
+            while stack.last().is_some_and(|&(open, level)| {
+                level > depth
+                    || (level == depth && (open != kind || kind == MarkerKind::Blockquote))
+            }) {
                 let (open, _) = stack.pop().expect("open container");
                 self.close_item(open);
                 let _ = write!(self.out, "</{}>", container_tag(open));
             }
 
+            let (classes, status) = marker_markup(node);
+            // A marker decorates the element it produces: a list marker its
+            // `<li>`, a `>` the blockquote it always opens.
+            let (container_classes, item_classes) = match kind {
+                MarkerKind::Blockquote => (classes.as_str(), ""),
+                _ => ("", classes.as_str()),
+            };
             match stack.last() {
                 Some(&(_, level)) if level == depth => self.close_item(kind),
                 _ => {
-                    let _ = write!(self.out, "<{}>", container_tag(kind));
+                    let _ = write!(self.out, "<{}{container_classes}>", container_tag(kind));
                     stack.push((kind, depth));
                 }
             }
 
             let (inline, content) = split_content(node);
             let html = self.inline(inline);
-            let (classes, status) = marker_markup(node);
             let gap = gap(status, &html);
             match kind {
                 MarkerKind::Blockquote => {
                     if !html.trim().is_empty() {
-                        let _ = write!(self.out, "<p{classes}>{status}{gap}{html}</p>");
+                        let _ = write!(self.out, "<p{item_classes}>{status}{gap}{html}</p>");
                     }
                 }
                 _ => {
-                    let _ = write!(self.out, "<li{classes}>{status}{gap}{html}");
+                    let _ = write!(self.out, "<li{item_classes}>{status}{gap}{html}");
                 }
             }
             self.blocks(content)?;
@@ -407,8 +417,8 @@ impl Renderer {
                 let _ = write!(
                     out,
                     r#"<img src="{}" alt="{}" />"#,
-                    encode_html_attribute(&relative(&href)),
-                    encode_html_attribute(&alt)
+                    encode_minimal(&relative(&href)),
+                    encode_minimal(&alt)
                 );
                 return;
             }
@@ -425,7 +435,7 @@ impl Renderer {
         let _ = write!(
             out,
             r#"<a href="{}"{external}>{display}</a>"#,
-            encode_html_attribute(&href)
+            encode_minimal(&href)
         );
     }
 
@@ -519,6 +529,13 @@ fn is_block(node: &Node) -> bool {
 /// blocks. A single-line verbatim child is inline code, not a block.
 fn split_content(node: &Node) -> (&[Node], &[Node]) {
     let nodes = children(node);
+    // Block form wraps the marker's own line in a paragraph, so unwrap it: the
+    // whole point of `#\ntitle\n#` is to render exactly like `# title`.
+    if let [first, rest @ ..] = nodes
+        && matches!(first.kind, NodeKind::Paragraph)
+    {
+        return (children(first), rest);
+    }
     let block_child = |node: &Node| match &node.kind {
         NodeKind::Delimiter(Delimiter::Verbatim) => children(node).len() > 1,
         _ => is_block(node),
@@ -549,18 +566,13 @@ fn class_attr(node: &Node) -> String {
     classes_attr(&string_args(node).join(" "))
 }
 
+/// `encode_minimal` already covers the attribute set — `&`, `<`, `>`, `"`, `'` —
+/// so quoting an attribute value needs nothing extra.
 fn classes_attr(classes: &str) -> String {
     match classes.is_empty() {
         true => String::new(),
-        false => format!(r#" class="{}""#, encode_html_attribute(classes)),
+        false => format!(r#" class="{}""#, encode_minimal(classes)),
     }
-}
-
-/// `encode_minimal` already covers the attribute set — `&`, `<`, `>`, `"`, `'` —
-/// so quoting needs nothing extra. Named for the call sites, which are all
-/// attribute values.
-fn encode_html_attribute(value: &str) -> String {
-    encode_minimal(value)
 }
 
 /// A structural marker's class attribute and its task status marker. A task is

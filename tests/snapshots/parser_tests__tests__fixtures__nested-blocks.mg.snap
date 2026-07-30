@@ -1,0 +1,22 @@
+---
+source: tests/parser_tests.rs
+expression: "(rendered.parts.join(\"\"), rendered.toc, metadata, rendered.css)"
+---
+- "<h1 id=\"nested-blocks\">Nested Blocks</h1>\n<div>\n<h1 id=\"heading\">Heading</h1>\n<blockquote><p>with a quote!</p></blockquote>\n</div>\n<h2 id=\"free-in-free\">Free in free</h2>\n<div class=\"outer\">\n<div class=\"inner\">\n<p>deep</p>\n</div>\n</div>\n<h2 id=\"containers-in-a-free-block\">Containers in a free block</h2>\n<div class=\"card\">\n<ul><li>one</li><li>two</li></ul>\n</div>\n<div>\n<table><tbody><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></tbody></table>\n</div>\n<h2 id=\"free-inside-other-blocks\">Free inside other blocks</h2>\n<blockquote><div class=\"inner\">\n<p>quoted div</p>\n</div>\n</blockquote><ul><li><div class=\"inner\">\n<p>in item</p>\n</div>\n</li></ul>\n"
+- - level: 1
+    title: Nested Blocks
+    id: nested-blocks
+  - level: 1
+    title: Heading
+    id: heading
+  - level: 2
+    title: Free in free
+    id: free-in-free
+  - level: 2
+    title: Containers in a free block
+    id: containers-in-a-free-block
+  - level: 2
+    title: Free inside other blocks
+    id: free-inside-other-blocks
+- title: Nested Blocks
+- ""

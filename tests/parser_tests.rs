@@ -17,6 +17,7 @@ fn fixture_files_render() {
         "tests/fixtures/headings.mg",
         "tests/fixtures/images.mg",
         "tests/fixtures/links.mg",
+        "tests/fixtures/nested-blocks.mg",
         "tests/fixtures/nested-lists.mg",
         "tests/fixtures/tasks.mg",
     ] {

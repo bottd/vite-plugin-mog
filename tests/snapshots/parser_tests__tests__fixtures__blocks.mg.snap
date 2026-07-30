@@ -2,7 +2,7 @@
 source: tests/parser_tests.rs
 expression: "(rendered.parts.join(\"\"), rendered.toc, metadata, rendered.css)"
 ---
-- "<h1 id=\"blocks\">Blocks</h1>\n<h2 id=\"quotes\">Quotes</h2>\n<blockquote><p>First quote line</p><p>Second quote line</p><p>Quote parent</p><blockquote><p>Nested quote</p></blockquote></blockquote>\n<h2 id=\"block-form\">Block Form</h2>\n<ul><li>Reading notes<ul><li><p>Chapter 3 was particularly relevant:</p>\n<blockquote><p>quote from chapter 3</p>\n</blockquote>\n</li></ul></li></ul>\n<h2 id=\"table\">Table</h2>\n<table><tbody><tr><th>Name</th><th>Type</th><th>Color</th></tr><tr><td>Apple</td><td>Fruit</td><td>Red</td></tr><tr><td><strong>Carrot</strong></td><td>Vegetable</td><td>Orange</td></tr><tr><td>Blueberry</td><td>Fruit</td><td></td></tr></tbody></table>\n<h2 id=\"thematic-break\">Thematic Break</h2>\n<hr />\n"
+- "<h1 id=\"blocks\">Blocks</h1>\n<h2 id=\"quotes\">Quotes</h2>\n<blockquote><p>One quote</p></blockquote><blockquote><p>A separate quote</p></blockquote><blockquote><p>One quote, carried over two lines.</p></blockquote><blockquote><p>Quote parent</p><blockquote><p>Nested quote</p></blockquote></blockquote>\n<h2 id=\"classed-quotes\">Classed Quotes</h2>\n<blockquote class=\"hero\"><p>Classed quote</p></blockquote><blockquote class=\"note\"><p>Another quote, with its own class</p></blockquote>\n<h2 id=\"block-form\">Block Form</h2>\n<ul><li>Reading notes<ul><li>Chapter 3 was particularly relevant:<blockquote><p>quote from chapter 3</p></blockquote>\n</li></ul></li></ul>\n<h2 id=\"block-form-heading\">Block form heading</h2>\n<h2 id=\"table\">Table</h2>\n<table><tbody><tr><th>Name</th><th>Type</th><th>Color</th></tr><tr><td>Apple</td><td>Fruit</td><td>Red</td></tr><tr><td><strong>Carrot</strong></td><td>Vegetable</td><td>Orange</td></tr><tr><td>Blueberry</td><td>Fruit</td><td></td></tr></tbody></table>\n<h2 id=\"free-block\">Free Block</h2>\n<div>\n<p>Grouped by a free marker.</p>\n</div>\n<div>\n</div>\n"
 - - level: 1
     title: Blocks
     id: blocks
@@ -10,13 +10,19 @@ expression: "(rendered.parts.join(\"\"), rendered.toc, metadata, rendered.css)"
     title: Quotes
     id: quotes
   - level: 2
+    title: Classed Quotes
+    id: classed-quotes
+  - level: 2
     title: Block Form
     id: block-form
+  - level: 2
+    title: Block form heading
+    id: block-form-heading
   - level: 2
     title: Table
     id: table
   - level: 2
-    title: Thematic Break
-    id: thematic-break
+    title: Free Block
+    id: free-block
 - title: Blocks
 - ""

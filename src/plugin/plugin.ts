@@ -283,13 +283,31 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
       if (dir) server.watcher.add(dir);
     },
 
-    async resolveId(id: string, importer?: string) {
+    // `scan` is set by the dep scanner but missing from Vite's public hook type.
+    async resolveId(
+      id: string,
+      importer: string | undefined,
+      options?: { isEntry: boolean; scan?: boolean }
+    ) {
+      // Ahead of the scan guard: user code imports these directly, and the `\0`
+      // keeps them external to the scanner.
       if (id === VIRTUAL_CSS_ID) {
         return RESOLVED_VIRTUAL_CSS_ID;
       }
 
       if (id.startsWith(VIRTUAL_DOC_CSS_PREFIX)) {
         return `\0${id}.css`;
+      }
+
+      // The dep scanner loads from disk, so the ids below would be files it
+      // cannot read. Unrewritten, `.mg` is skipped as unscannable.
+      if (options?.scan) return;
+
+      // A generated id can be imported by its own name — plugin-react's HMR
+      // preamble does exactly that — and only this plugin can resolve it.
+      if (ext && id.includes(`.mg${ext}`)) {
+        const basePath = cleanModuleId(id).slice(0, -ext.length);
+        if (basePath.endsWith('.mg') && isAbsolute(basePath) && filter(basePath)) return id;
       }
 
       if (ext && appendExt && id.endsWith('.mg')) {
@@ -372,8 +390,8 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
         return injectComponentImports(code, components, mode);
       }
 
-      const rawId = id.startsWith('\0') ? id.slice(1) : id;
-      const [idWithoutQuery, query] = rawId.split('?', 2);
+      const idWithoutQuery = cleanModuleId(id);
+      const query = id.split('?', 2)[1];
       if (query && query !== 'metadata') return;
       let basePath = normalizePath(idWithoutQuery);
       if (ext && idWithoutQuery.endsWith(`.mg${ext}`)) {

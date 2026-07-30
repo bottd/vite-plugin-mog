@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import 'virtual:mog-arborium.css';
-import { computed, ref, shallowRef } from 'vue';
+import { computed, ref } from 'vue';
 import Index, { metadata as indexMeta } from '../content/index.mg';
 import Embeds, { metadata as embedsMeta } from '../content/embeds.mg';
 
+// `pages` is a plain array, so a ref here would reach the template unwrapped.
 const pages = [
-  { id: 'index', component: shallowRef(Index), meta: indexMeta },
-  { id: 'embeds', component: shallowRef(Embeds), meta: embedsMeta },
+  { id: 'index', component: Index, meta: indexMeta },
+  { id: 'embeds', component: Embeds, meta: embedsMeta },
 ];
 
 const currentId = ref('index');

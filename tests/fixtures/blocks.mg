@@ -6,11 +6,21 @@ title "Blocks"
 
 ## Quotes
 
-> First quote line
-> Second quote line
+> One quote
+> A separate quote
+
+>
+ One quote,
+ carried over two lines.
+>
 
 > Quote parent
 >> Nested quote
+
+## Classed Quotes
+
+>hero: Classed quote
+>note: Another quote, with its own class
 
 ## Block Form
 
@@ -22,6 +32,10 @@ quote from chapter 3
 >
 --
 
+##
+Block form heading
+##
+
 ## Table
 
 #| Name       || Type      || Color    ||
@@ -29,6 +43,10 @@ quote from chapter 3
 -| **Carrot** || Vegetable || Orange   ||
 -| Blueberry  || Fruit     ||
 
-## Thematic Break
+## Free Block
+
+=
+Grouped by a free marker.
+=
 
 =

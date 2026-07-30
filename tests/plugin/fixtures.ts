@@ -1,23 +1,23 @@
-import { fileURLToPath } from 'node:url';
-import { join, dirname } from 'node:path';
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-export const fixturesDir = join(__dirname, '../fixtures');
+export const fixturesDir = join(import.meta.dirname, '../fixtures');
 export const componentsDir = join(fixturesDir, 'components');
 
-// Every fixture without a framework-specific embed block, so each generator can
-// render all of them. Embed wiring lives in embed-output.test.ts.
-export const fixtures = [
-  'basic.mg',
-  'blocks.mg',
-  'code-blocks.mg',
-  'headings.mg',
-  'images.mg',
-  'links.mg',
-  'nested-lists.mg',
-  'tasks.mg',
-  'embed-css.mg',
-];
+// Every fixture each generator can render. The framework-specific embed
+// fixtures need wiring that lives in embed-output.test.ts, and diagnostics.mg
+// exists to exercise warnings rather than clean output.
+const notRenderable = new Set([
+  'diagnostics.mg',
+  'embed.mg',
+  'embed-html.mg',
+  'embed-react.mg',
+  'embed-vue.mg',
+]);
+
+export const fixtures = readdirSync(fixturesDir).filter(
+  name => name.endsWith('.mg') && !notRenderable.has(name)
+);
 
 export async function loadCode(
   plugin: { load?: (id: string) => unknown | Promise<unknown> },

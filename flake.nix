@@ -10,16 +10,20 @@
     };
     crane.url = "github:ipetkov/crane";
     pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
+    playwright.url = "github:pietdevries94/playwright-web-flake";
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-overlay, crane, pre-commit-hooks, treefmt-nix }:
+  outputs = { self, nixpkgs, flake-utils, rust-overlay, crane, pre-commit-hooks, treefmt-nix, playwright }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        overlays = [ (import rust-overlay) ];
+        overlays = [
+          (import rust-overlay)
+          (final: prev: { inherit (playwright.packages.${system}) playwright-driver; })
+        ];
         pkgs = import nixpkgs {
           inherit system overlays;
         };
@@ -30,6 +34,12 @@
         };
 
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
+
+        # chromium only — the e2e tests launch nothing else
+        playwright-browsers = pkgs.playwright-driver.browsers.override {
+          withFirefox = false;
+          withWebkit = false;
+        };
 
         # Common args for crane
         commonArgs = {
@@ -102,7 +112,12 @@
             direnv
           ] ++ pre-commit-check.enabledPackages;
 
-          shellHook = pre-commit-check.shellHook;
+          shellHook = ''
+            export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+            export PLAYWRIGHT_BROWSERS_PATH="${playwright-browsers}"
+
+            ${pre-commit-check.shellHook}
+          '';
         };
       });
 }
