@@ -15,11 +15,11 @@ npm install -D vite-plugin-mog
 
 ```typescript
 // vite.config.ts
-import { defineConfig } from "vite";
-import { mogPlugin } from "vite-plugin-mog";
+import { defineConfig } from 'vite';
+import { mogPlugin } from 'vite-plugin-mog';
 
 export default defineConfig({
-  plugins: [mogPlugin({ mode: "svelte" })],
+  plugins: [mogPlugin({ mode: 'svelte' })],
 });
 ```
 
@@ -82,13 +82,13 @@ Every mode exports `metadata` and `toc`. The default export is what changes.
 
 ```javascript
 // html
-import { metadata, html } from "./document.mg";
+import { metadata, html } from './document.mg';
 document.body.innerHTML = html;
 ```
 
 ```jsx
 // react
-import { metadata, Component } from "./document.mg";
+import { metadata, Component } from './document.mg';
 
 export default () => <Component />;
 ```
@@ -106,7 +106,7 @@ export default () => <Component />;
 ```vue
 <!-- vue -->
 <script setup>
-import Document, { metadata } from "./document.mg";
+import Document, { metadata } from './document.mg';
 </script>
 
 <template>
@@ -117,7 +117,7 @@ import Document, { metadata } from "./document.mg";
 `toc` holds one entry per heading, with the anchor id the renderer emitted:
 
 ```javascript
-import { toc } from "./document.mg";
+import { toc } from './document.mg';
 // [{ level: 1, title: "Main Title", id: "main-title" }, ...]
 ```
 
@@ -125,7 +125,7 @@ Append `?metadata` to any import to skip rendering and get metadata only,
 whatever the mode:
 
 ```javascript
-import { metadata, toc } from "./document.mg?metadata";
+import { metadata, toc } from './document.mg?metadata';
 ```
 
 ## Syntax highlighting
@@ -135,10 +135,10 @@ Highlighting comes from [arborium](https://arborium.bearcove.eu/), which uses
 tree-sitter. Set a theme to turn it on:
 
 ```typescript
-mogPlugin({ mode: "html", theme: "GitHub Dark" });
+mogPlugin({ mode: 'html', theme: 'GitHub Dark' });
 mogPlugin({
-  mode: "html",
-  theme: { light: "GitHub Light", dark: "Tokyo Night" },
+  mode: 'html',
+  theme: { light: 'GitHub Light', dark: 'Tokyo Night' },
 });
 ```
 
@@ -166,10 +166,10 @@ Point `componentDir` at a directory of components, or map imports yourself:
 
 ```typescript
 mogPlugin({
-  mode: "svelte",
-  componentDir: "./src/components",
+  mode: 'svelte',
+  componentDir: './src/components',
   components: {
-    Chart: "./src/lib/Chart.svelte",
+    Chart: './src/lib/Chart.svelte',
   },
 });
 ```
