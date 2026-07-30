@@ -1,3 +1,11 @@
+## [0.2.1](https://github.com/bottd/vite-plugin-mog/compare/v0.2.0...v0.2.1) (2026-07-30)
+
+
+### Bug Fixes
+
+* fmt ([fb83076](https://github.com/bottd/vite-plugin-mog/commit/fb83076788e72b2bc45274eb4207848b2b3f15a2))
+* update docs, test e2e release ([f13e77c](https://github.com/bottd/vite-plugin-mog/commit/f13e77c3531dd2925c1bd93792ee4c50eebb5965))
+
 # [0.2.0](https://github.com/bottd/vite-plugin-mog/compare/v0.1.0...v0.2.0) (2026-07-30)
 
 
