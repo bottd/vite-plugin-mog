@@ -2,7 +2,7 @@ packages:
   - examples/*
 
 minimumReleaseAgeExclude:
-  - "@napi-rs/cli"
+  - '@napi-rs/cli'
 
 ignoredOptionalDependencies:
   - vite-plugin-mog-*
