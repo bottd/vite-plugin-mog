@@ -118,5 +118,13 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bottd/vite-plugin-mog.git"
+  },
+  "optionalDependencies": {
+    "vite-plugin-mog-darwin-x64": "0.1.0",
+    "vite-plugin-mog-darwin-arm64": "0.1.0",
+    "vite-plugin-mog-linux-x64-gnu": "0.1.0",
+    "vite-plugin-mog-linux-arm64-gnu": "0.1.0",
+    "vite-plugin-mog-linux-x64-musl": "0.1.0",
+    "vite-plugin-mog-linux-arm64-musl": "0.1.0"
   }
 }
