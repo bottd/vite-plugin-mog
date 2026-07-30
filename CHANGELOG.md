@@ -1,3 +1,10 @@
+# [0.1.0](https://github.com/bottd/vite-plugin-mog/compare/v0.0.0...v0.1.0) (2026-07-30)
+
+
+### Features
+
+* initial public release ([5bab24f](https://github.com/bottd/vite-plugin-mog/commit/5bab24f922ac67a4f57d7105ef58802c9c40838f))
+
 ## [4.0.19](https://github.com/bottd/vite-plugin-norg/compare/v4.0.18...v4.0.19) (2026-07-28)
 
 ## [4.0.18](https://github.com/bottd/vite-plugin-norg/compare/v4.0.17...v4.0.18) (2026-07-26)
