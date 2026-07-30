@@ -1,3 +1,17 @@
+# [0.2.0](https://github.com/bottd/vite-plugin-mog/compare/v0.1.0...v0.2.0) (2026-07-30)
+
+
+### Bug Fixes
+
+* formatting ([5dec90d](https://github.com/bottd/vite-plugin-mog/commit/5dec90db7b738cbb9e57e738bcd1deb8d44761dd))
+* remove optionalDependencies, field generated at publish time ([bc7d02d](https://github.com/bottd/vite-plugin-mog/commit/bc7d02d9e998e4498a704ce7c7c41e1d64160850))
+* remove optionalDependencies, field generated at publish time ([1f5ddf4](https://github.com/bottd/vite-plugin-mog/commit/1f5ddf470ca1ee90c70d81994ca4315c7744e401))
+
+
+### Features
+
+* add example projects as reference and test case ([af56f82](https://github.com/bottd/vite-plugin-mog/commit/af56f82e38565e3b51efbb280f1cc2f80120cb80))
+
 # [0.1.0](https://github.com/bottd/vite-plugin-mog/compare/v0.0.0...v0.1.0) (2026-07-30)
 
 
