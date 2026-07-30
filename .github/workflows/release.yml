@@ -1,0 +1,123 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.host }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS - native runners
+          - target: x86_64-apple-darwin
+            host: macos-latest
+          - target: aarch64-apple-darwin
+            host: macos-latest
+          # Linux gnu - napi-cross
+          - target: x86_64-unknown-linux-gnu
+            host: ubuntu-latest
+            extra-args: '--use-napi-cross'
+          - target: aarch64-unknown-linux-gnu
+            host: ubuntu-latest
+            extra-args: '--use-napi-cross'
+          # Linux musl - cargo-zigbuild
+          - target: x86_64-unknown-linux-musl
+            host: ubuntu-latest
+            extra-args: '-x'
+          - target: aarch64-unknown-linux-musl
+            host: ubuntu-latest
+            extra-args: '-x'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Setup (Linux Cross-Compilation)
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/setup-linux
+
+      - name: Build native binding (${{ matrix.target }})
+        shell: bash
+        run: |
+          pnpm exec napi build --release --platform --esm --strip \
+            --output-dir dist/napi/ \
+            --target "${{ matrix.target }}" ${{ matrix.extra-args }}
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '10.13'
+          TARGET_CFLAGS: '-std=gnu11 -UNDEBUG'
+
+      - name: Upload native binding
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-binding-${{ matrix.target }}
+          path: dist/napi/
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN_FOR_UPDATES }}
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Download native bindings
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-binding-*
+          path: dist/napi
+          merge-multiple: true
+
+      - name: Stage per-platform packages
+        # Each binding is ~160 MB, so they ship as optional per-platform
+        # packages; `files` keeps them out of the root tarball. They stay in
+        # dist/napi/ as well so the test run below has a binding to load.
+        run: |
+          pnpm exec napi create-npm-dirs
+          pnpm exec napi artifacts -d dist/napi --npm-dir npm
+
+      - name: Build JavaScript
+        run: pnpm run build:js
+
+      - name: Run Nix flake checks
+        run: nix flake check
+
+      - name: Run eslint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run check
+
+      - name: Run JavaScript tests
+        run: pnpm test
+
+      # `napi pre-publish` publishes the per-platform packages with a plain
+      # `npm publish`, which reads the ambient config rather than the temporary
+      # npmrc semantic-release writes for its own publish.
+      - name: Authenticate with npm
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Semantic Release
+        run: pnpm exec semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN_FOR_UPDATES }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,0 +1,28 @@
+---
+source: tests/parser_tests.rs
+expression: "(rendered.parts.join(\"\"), rendered.toc, metadata, rendered.css)"
+---
+- "<h1 id=\"h1\">H1</h1>\n<p>Content 1</p>\n<h2 id=\"h2\">H2</h2>\n<p>Content 2</p>\n<h3 id=\"h3\">H3</h3>\n<p>Content 3</p>\n<h4 id=\"h4\">H4</h4>\n<p>Content 4</p>\n<h5 id=\"h5\">H5</h5>\n<p>Content 5</p>\n<h6 id=\"h6\">H6</h6>\n<p>Content 6</p>\n<h6 id=\"h7-clamps-to-h6\">H7 clamps to h6</h6>\n<p>Content 7</p>\n"
+- - level: 1
+    title: H1
+    id: h1
+  - level: 2
+    title: H2
+    id: h2
+  - level: 3
+    title: H3
+    id: h3
+  - level: 4
+    title: H4
+    id: h4
+  - level: 5
+    title: H5
+    id: h5
+  - level: 6
+    title: H6
+    id: h6
+  - level: 6
+    title: H7 clamps to h6
+    id: h7-clamps-to-h6
+- title: Headings
+- ""

@@ -1,0 +1,33 @@
+[package]
+name = "vite-plugin-mog-parser"
+version = "0.1.0"
+edition = "2024"
+authors = ["Drake Bott"]
+description = "napi parser for vite-plugin-mog"
+license = "MIT"
+repository = "https://github.com/bottd/vite-plugin-mog"
+publish = false
+
+[lib]
+name = "vite_plugin_mog_parser"
+crate-type = ["cdylib", "rlib"]
+path = "src/parser/lib.rs"
+
+
+[dependencies]
+napi = { version = "=3.12.0", features = ["serde-json"] }
+napi-derive = { version = "=3.6.1", features = ["type-def"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+htmlescape = "=0.3.1"
+mog-parser = "=0.1.1"
+arborium = { version = "=2.18.1", features = ["all-languages"] }
+
+[dev-dependencies]
+insta = { version = "=1.48.0", features = ["yaml"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

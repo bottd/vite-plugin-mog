@@ -1,0 +1,20 @@
+---
+source: tests/parser_tests.rs
+expression: "(rendered.parts.join(\"\"), rendered.toc, metadata, rendered.css)"
+---
+- "<h1 id=\"main-title\">Main Title</h1>\n<p>Text with <strong>bold</strong>, <em>italic</em>, <code>code</code>, and <s>strikethrough</s>.</p>\n<h2 id=\"lists\">Lists</h2>\n<ul><li>Item 1</li><li>Item 2</li></ul><ol><li>Number 1</li><li>Number 2</li></ol>\n<h2 id=\"link\">Link</h2>\n<p><a href=\"https://example.com\" target=\"_blank\" rel=\"noopener noreferrer\">link text</a></p>\n"
+- - level: 1
+    title: Main Title
+    id: main-title
+  - level: 2
+    title: Lists
+    id: lists
+  - level: 2
+    title: Link
+    id: link
+- author: Drake Bott
+  tags:
+    - test
+    - basic
+  title: Basic Mog
+- ""

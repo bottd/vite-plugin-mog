@@ -1,0 +1,22 @@
+---
+source: tests/parser_tests.rs
+expression: "(rendered.parts.join(\"\"), rendered.toc, metadata, rendered.css)"
+---
+- "<h1 id=\"blocks\">Blocks</h1>\n<h2 id=\"quotes\">Quotes</h2>\n<blockquote><p>First quote line</p><p>Second quote line</p><p>Quote parent</p><blockquote><p>Nested quote</p></blockquote></blockquote>\n<h2 id=\"block-form\">Block Form</h2>\n<ul><li>Reading notes<ul><li><p>Chapter 3 was particularly relevant:</p>\n<blockquote><p>quote from chapter 3</p>\n</blockquote>\n</li></ul></li></ul>\n<h2 id=\"table\">Table</h2>\n<table><tbody><tr><th>Name</th><th>Type</th><th>Color</th></tr><tr><td>Apple</td><td>Fruit</td><td>Red</td></tr><tr><td><strong>Carrot</strong></td><td>Vegetable</td><td>Orange</td></tr><tr><td>Blueberry</td><td>Fruit</td><td></td></tr></tbody></table>\n<h2 id=\"thematic-break\">Thematic Break</h2>\n<hr />\n"
+- - level: 1
+    title: Blocks
+    id: blocks
+  - level: 2
+    title: Quotes
+    id: quotes
+  - level: 2
+    title: Block Form
+    id: block-form
+  - level: 2
+    title: Table
+    id: table
+  - level: 2
+    title: Thematic Break
+    id: thematic-break
+- title: Blocks
+- ""

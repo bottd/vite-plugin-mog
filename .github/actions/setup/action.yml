@@ -1,0 +1,26 @@
+name: Setup
+description: Install Nix, enter dev shell, and install dependencies
+
+inputs:
+  cachix-name:
+    description: Name of the Cachix cache to use
+    required: false
+    default: nix-community
+
+runs:
+  using: composite
+  steps:
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@main
+
+    - name: Setup Cachix
+      uses: cachix/cachix-action@v17
+      with:
+        name: ${{ inputs.cachix-name }}
+
+    - name: Setup Nix dev environment
+      uses: nicknovitski/nix-develop@v1
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

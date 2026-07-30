@@ -1,0 +1,37 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "automerge": true,
+  "rangeStrategy": "pin",
+  "schedule": ["every weekday"],
+  "timezone": "America/Chicago",
+  "labels": ["automated"],
+  "separateMajorMinor": true,
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "nix": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "matchDepTypes": ["peerDependencies"],
+      "rangeStrategy": "widen"
+    },
+    {
+      "description": "typescript-eslint refuses to run against TS 7.0, and vite-plugin-dts needs a separate shim for it. Drop this rule once typescript-eslint ships TS 7 support (typescript-eslint#10940).",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
+    },
+    {
+      "description": "`nix fmt` is the formatting authority and uses nixpkgs' prettier. Keeping this pin equal to that version stops the two from disagreeing (they format union types differently since 3.9). Bump both together.",
+      "matchPackageNames": ["prettier"],
+      "enabled": false
+    },
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchManagers": ["npm", "cargo", "nix"],
+      "groupName": "non-major updates"
+    }
+  ]
+}

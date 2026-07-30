@@ -1,0 +1,31 @@
+name: PR Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: CI Pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Run Nix flake checks
+        run: nix flake check
+
+      - name: Build plugin
+        run: pnpm run build
+
+      - name: Run eslint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run check
+
+      - name: Run JavaScript tests
+        run: pnpm test

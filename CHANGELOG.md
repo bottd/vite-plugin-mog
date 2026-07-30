@@ -1,0 +1,310 @@
+## [4.0.19](https://github.com/bottd/vite-plugin-norg/compare/v4.0.18...v4.0.19) (2026-07-28)
+
+## [4.0.18](https://github.com/bottd/vite-plugin-norg/compare/v4.0.17...v4.0.18) (2026-07-26)
+
+## [4.0.17](https://github.com/bottd/vite-plugin-norg/compare/v4.0.16...v4.0.17) (2026-07-25)
+
+
+### Bug Fixes
+
+* **deps:** update non-major updates ([#101](https://github.com/bottd/vite-plugin-norg/issues/101)) ([4d63f42](https://github.com/bottd/vite-plugin-norg/commit/4d63f42ca16423ea3887598756ae546be067b90a))
+* **deps:** update non-major updates ([#104](https://github.com/bottd/vite-plugin-norg/issues/104)) ([610b1c2](https://github.com/bottd/vite-plugin-norg/commit/610b1c2226a28855ddb4e9190e2b1cc4820abeb2))
+* **deps:** update non-major updates ([#98](https://github.com/bottd/vite-plugin-norg/issues/98)) ([3b62ef7](https://github.com/bottd/vite-plugin-norg/commit/3b62ef7bb6f75b78ff1af7d02651c39a366b2c40))
+
+## [4.0.16](https://github.com/bottd/vite-plugin-norg/compare/v4.0.15...v4.0.16) (2026-05-23)
+
+
+### Bug Fixes
+
+* **deps:** update non-major updates ([#93](https://github.com/bottd/vite-plugin-norg/issues/93)) ([9500745](https://github.com/bottd/vite-plugin-norg/commit/95007457fcc9f000cec9bb922dfe2cab8fa78bb9))
+
+## [4.0.15](https://github.com/bottd/vite-plugin-norg/compare/v4.0.14...v4.0.15) (2026-05-20)
+
+
+### Bug Fixes
+
+* **deps:** update non-major updates ([#90](https://github.com/bottd/vite-plugin-norg/issues/90)) ([ba05b48](https://github.com/bottd/vite-plugin-norg/commit/ba05b483c08659da87f2ba34f08593e901508ff3))
+
+## [4.0.14](https://github.com/bottd/vite-plugin-norg/compare/v4.0.13...v4.0.14) (2026-05-12)
+
+## [4.0.13](https://github.com/bottd/vite-plugin-norg/compare/v4.0.12...v4.0.13) (2026-05-09)
+
+
+### Bug Fixes
+
+* **deps:** update non-major updates ([#88](https://github.com/bottd/vite-plugin-norg/issues/88)) ([a56b4b2](https://github.com/bottd/vite-plugin-norg/commit/a56b4b20cb4c9ab00b72abe578790bfa0c35d5b6))
+
+## [4.0.12](https://github.com/bottd/vite-plugin-norg/compare/v4.0.11...v4.0.12) (2026-05-05)
+
+
+### Bug Fixes
+
+* **deps:** update non-major updates ([#86](https://github.com/bottd/vite-plugin-norg/issues/86)) ([16fd152](https://github.com/bottd/vite-plugin-norg/commit/16fd15267f382eb723ebd20ff9153ee4208c2228))
+
+## [4.0.11](https://github.com/bottd/vite-plugin-norg/compare/v4.0.10...v4.0.11) (2026-04-25)
+
+## [4.0.10](https://github.com/bottd/vite-plugin-norg/compare/v4.0.9...v4.0.10) (2026-04-21)
+
+## [4.0.9](https://github.com/bottd/vite-plugin-norg/compare/v4.0.8...v4.0.9) (2026-04-19)
+
+
+### Bug Fixes
+
+* **deps:** update non-major updates ([#80](https://github.com/bottd/vite-plugin-norg/issues/80)) ([d89af80](https://github.com/bottd/vite-plugin-norg/commit/d89af80668317a5e58e6d2f6f97d1712985a0626))
+
+## [4.0.8](https://github.com/bottd/vite-plugin-norg/compare/v4.0.7...v4.0.8) (2026-04-17)
+
+
+### Bug Fixes
+
+* return sourcemaps for files ([68c2bb0](https://github.com/bottd/vite-plugin-norg/commit/68c2bb0931dad0f18af5ce4a9caf75a2b7caa98f))
+
+## [4.0.7](https://github.com/bottd/vite-plugin-norg/compare/v4.0.6...v4.0.7) (2026-04-17)
+
+## [4.0.6](https://github.com/bottd/vite-plugin-norg/compare/v4.0.5...v4.0.6) (2026-04-15)
+
+
+### Bug Fixes
+
+* transformWithOxc in react mode for JSX transform ([cd0e4cc](https://github.com/bottd/vite-plugin-norg/commit/cd0e4cc85a89014bef93e1d1911afc6f44ed056e))
+
+## [4.0.5](https://github.com/bottd/vite-plugin-norg/compare/v4.0.4...v4.0.5) (2026-04-15)
+
+
+### Bug Fixes
+
+* exclude pnpm-lock.yaml from formatting ([4bebe35](https://github.com/bottd/vite-plugin-norg/commit/4bebe356f0c6da5eb52b53d23ea97060120b6e6a))
+* resolve .norg files with framework extension ([6940d27](https://github.com/bottd/vite-plugin-norg/commit/6940d278945eba056f33d2b3ff31ffde8d10f8cc))
+* resolve linter error ([605fcc5](https://github.com/bottd/vite-plugin-norg/commit/605fcc506fa6a5c48239e1269d33f7f79f64bb85))
+
+## [4.0.4](https://github.com/bottd/vite-plugin-norg/compare/v4.0.3...v4.0.4) (2026-03-26)
+
+## [4.0.3](https://github.com/bottd/vite-plugin-norg/compare/v4.0.2...v4.0.3) (2026-03-22)
+
+## [4.0.2](https://github.com/bottd/vite-plugin-norg/compare/v4.0.1...v4.0.2) (2026-03-20)
+
+## [4.0.1](https://github.com/bottd/vite-plugin-norg/compare/v4.0.0...v4.0.1) (2026-03-18)
+
+# [4.0.0](https://github.com/bottd/vite-plugin-norg/compare/v3.0.12...v4.0.0) (2026-03-15)
+
+
+* feat!: upgrade to vite v8.0.0 ([fa18ae3](https://github.com/bottd/vite-plugin-norg/commit/fa18ae3a885a99bb2960672064bebf7f25a32356))
+
+
+### BREAKING CHANGES
+
+* upgrade to vite v8.0.0
+
+## [3.0.12](https://github.com/bottd/vite-plugin-norg/compare/v3.0.11...v3.0.12) (2026-03-15)
+
+## [3.0.11](https://github.com/bottd/vite-plugin-norg/compare/v3.0.10...v3.0.11) (2026-03-13)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate arborium to v2.16.0 ([#71](https://github.com/bottd/vite-plugin-norg/issues/71)) ([eb62b38](https://github.com/bottd/vite-plugin-norg/commit/eb62b389c4ac61ebd42419a272fab3fd487eee73))
+
+## [3.0.10](https://github.com/bottd/vite-plugin-norg/compare/v3.0.9...v3.0.10) (2026-03-12)
+
+## [3.0.9](https://github.com/bottd/vite-plugin-norg/compare/v3.0.8...v3.0.9) (2026-03-09)
+
+## [3.0.8](https://github.com/bottd/vite-plugin-norg/compare/v3.0.7...v3.0.8) (2026-03-08)
+
+## [3.0.7](https://github.com/bottd/vite-plugin-norg/compare/v3.0.6...v3.0.7) (2026-03-06)
+
+## [3.0.6](https://github.com/bottd/vite-plugin-norg/compare/v3.0.5...v3.0.6) (2026-03-04)
+
+## [3.0.5](https://github.com/bottd/vite-plugin-norg/compare/v3.0.4...v3.0.5) (2026-03-01)
+
+## [3.0.4](https://github.com/bottd/vite-plugin-norg/compare/v3.0.3...v3.0.4) (2026-02-28)
+
+
+### Bug Fixes
+
+* remove framework resolveId extension - caused issues with sveltekit ([afcae10](https://github.com/bottd/vite-plugin-norg/commit/afcae1066515e10f87212ddc759900ad42a603c7))
+
+## [3.0.3](https://github.com/bottd/vite-plugin-norg/compare/v3.0.2...v3.0.3) (2026-02-26)
+
+## [3.0.2](https://github.com/bottd/vite-plugin-norg/compare/v3.0.1...v3.0.2) (2026-02-22)
+
+
+### Bug Fixes
+
+* add framework extensions to vite modules ([fc5371b](https://github.com/bottd/vite-plugin-norg/commit/fc5371b9c711629fd63cde9fafdd02fefc1e5783))
+
+## [3.0.1](https://github.com/bottd/vite-plugin-norg/compare/v3.0.0...v3.0.1) (2026-02-22)
+
+
+### Bug Fixes
+
+* import css with individual component, not globally ([1e05eee](https://github.com/bottd/vite-plugin-norg/commit/1e05eee6feabba1fcffbf397a032d01b2cd4d06a))
+* import css with individual component, not globally ([485d713](https://github.com/bottd/vite-plugin-norg/commit/485d71306d210d8175a880ec57060709777ac4d7))
+
+# [3.0.0](https://github.com/bottd/vite-plugin-norg/compare/v2.3.5...v3.0.0) (2026-02-21)
+
+
+* feat!: add support for inline components and styles ([6bf9424](https://github.com/bottd/vite-plugin-norg/commit/6bf94249922fdbbdaed984f6b828cb353e5f5efa))
+
+
+### Features
+
+* cross-platform compilation ([c955efc](https://github.com/bottd/vite-plugin-norg/commit/c955efc7cc589adbc2986d48f8181b19758351c1))
+
+
+### BREAKING CHANGES
+
+* add support for inline components and styles
+
+update
+
+## [2.3.5](https://github.com/bottd/vite-plugin-norg/compare/v2.3.4...v2.3.5) (2026-02-19)
+
+## [2.3.4](https://github.com/bottd/vite-plugin-norg/compare/v2.3.3...v2.3.4) (2026-02-17)
+
+
+### Bug Fixes
+
+* **deps:** update non-major updates ([#47](https://github.com/bottd/vite-plugin-norg/issues/47)) ([6686166](https://github.com/bottd/vite-plugin-norg/commit/66861660cc5cb99073d0025a42e5d4b0eb3ba8fe))
+
+## [2.3.3](https://github.com/bottd/vite-plugin-norg/compare/v2.3.2...v2.3.3) (2026-02-15)
+
+## [2.3.2](https://github.com/bottd/vite-plugin-norg/compare/v2.3.1...v2.3.2) (2026-02-13)
+
+## [2.3.1](https://github.com/bottd/vite-plugin-norg/compare/v2.3.0...v2.3.1) (2026-02-11)
+
+
+### Bug Fixes
+
+* **deps:** pin dependency ts-dedent to 2.2.0 ([#51](https://github.com/bottd/vite-plugin-norg/issues/51)) ([f0c439c](https://github.com/bottd/vite-plugin-norg/commit/f0c439cf0a52385b6687a525f89a2fcecc877871))
+
+# [2.3.0](https://github.com/bottd/vite-plugin-norg/compare/v2.2.0...v2.3.0) (2026-02-10)
+
+
+### Bug Fixes
+
+* **deps:** update non-major updates ([#31](https://github.com/bottd/vite-plugin-norg/issues/31)) ([c488080](https://github.com/bottd/vite-plugin-norg/commit/c4880803f37467312e313edbfbb0eb2543b6af16))
+
+
+### Features
+
+* metadata export option ([#50](https://github.com/bottd/vite-plugin-norg/issues/50)) ([514da9c](https://github.com/bottd/vite-plugin-norg/commit/514da9c3a60128b90d7523c314d35c4cabfc3add))
+
+# [2.2.0](https://github.com/bottd/vite-plugin-norg/compare/v2.1.8...v2.2.0) (2026-02-02)
+
+
+### Bug Fixes
+
+* add aarch64-unknown-linux-musl target ([f9fa2c6](https://github.com/bottd/vite-plugin-norg/commit/f9fa2c683b4fe384964fe93e26f7351c043fcb8b))
+* sync rust-toolchains, bump deps ([a97cdae](https://github.com/bottd/vite-plugin-norg/commit/a97cdae53ef9879cd7537f85adb669d00aa0295d))
+* sync rust-toolchains, bump deps ([f36831a](https://github.com/bottd/vite-plugin-norg/commit/f36831a426c49ce8c10e6a943dcb83ad26a26e74))
+
+
+### Features
+
+* cross-platform compilation ([e4cb5fa](https://github.com/bottd/vite-plugin-norg/commit/e4cb5fa7b7d1fa04fff85be3fde26769e9cab532))
+
+## [2.1.8](https://github.com/bottd/vite-plugin-norg/compare/v2.1.7...v2.1.8) (2026-01-08)
+
+## [2.1.7](https://github.com/bottd/vite-plugin-norg/compare/v2.1.6...v2.1.7) (2026-01-06)
+
+## [2.1.6](https://github.com/bottd/vite-plugin-norg/compare/v2.1.5...v2.1.6) (2026-01-04)
+
+## [2.1.5](https://github.com/bottd/vite-plugin-norg/compare/v2.1.4...v2.1.5) (2026-01-02)
+
+## [2.1.4](https://github.com/bottd/vite-plugin-norg/compare/v2.1.3...v2.1.4) (2025-12-31)
+
+## [2.1.3](https://github.com/bottd/vite-plugin-norg/compare/v2.1.2...v2.1.3) (2025-12-29)
+
+## [2.1.2](https://github.com/bottd/vite-plugin-norg/compare/v2.1.1...v2.1.2) (2025-12-26)
+
+## [2.1.1](https://github.com/bottd/vite-plugin-norg/compare/v2.1.0...v2.1.1) (2025-12-24)
+
+
+### Bug Fixes
+
+* **deps:** pin rust crate arborium to v2.3.2 ([#34](https://github.com/bottd/vite-plugin-norg/issues/34)) ([e29427d](https://github.com/bottd/vite-plugin-norg/commit/e29427d53d3961d31886c2c52046f1fd57a0c0b6))
+
+# [2.1.0](https://github.com/bottd/vite-plugin-norg/compare/v2.0.1...v2.1.0) (2025-12-22)
+
+
+### Features
+
+* wrap lines in span for line-based styling ([d13fc2e](https://github.com/bottd/vite-plugin-norg/commit/d13fc2ee16d82cc49d41bc8a2b6924df6a86de70))
+
+## [2.0.1](https://github.com/bottd/vite-plugin-norg/compare/v2.0.0...v2.0.1) (2025-12-22)
+
+
+### Bug Fixes
+
+* remove vite types from plugin.ts to keep vite out of bundle ([c625c7f](https://github.com/bottd/vite-plugin-norg/commit/c625c7f58348381f07e474f16725f8e9898f3965))
+
+# [2.0.0](https://github.com/bottd/vite-plugin-norg/compare/v1.3.9...v2.0.0) (2025-12-22)
+
+
+### Features
+
+* replace shiki with arborium ([4c66309](https://github.com/bottd/vite-plugin-norg/commit/4c663094b73afbf7e9eb21092be1d70262331586))
+
+
+### BREAKING CHANGES
+
+* plugin configuration uses arboriumConfig field instead
+of shikiOptions
+
+# [1.4.0](https://github.com/bottd/vite-plugin-norg/compare/v1.3.9...v1.4.0) (2025-12-21)
+
+
+### Features
+
+* replace shiki with arborium ([#33](https://github.com/bottd/vite-plugin-norg/issues/33)) ([b84722b](https://github.com/bottd/vite-plugin-norg/commit/b84722bdfc534c86ea23d120cf75850eb2cefcd7))
+
+# [1.4.0](https://github.com/bottd/vite-plugin-norg/compare/v1.3.9...v1.4.0) (2025-12-20)
+
+
+### Features
+
+* replace shiki with arborium ([#33](https://github.com/bottd/vite-plugin-norg/issues/33)) ([b84722b](https://github.com/bottd/vite-plugin-norg/commit/b84722bdfc534c86ea23d120cf75850eb2cefcd7))
+
+## [1.3.9](https://github.com/bottd/vite-plugin-norg/compare/v1.3.8...v1.3.9) (2025-12-19)
+
+## [1.3.8](https://github.com/bottd/vite-plugin-norg/compare/v1.3.7...v1.3.8) (2025-12-17)
+
+## [1.3.7](https://github.com/bottd/vite-plugin-norg/compare/v1.3.6...v1.3.7) (2025-12-15)
+
+## [1.3.6](https://github.com/bottd/vite-plugin-norg/compare/v1.3.5...v1.3.6) (2025-12-13)
+
+## [1.3.5](https://github.com/bottd/vite-plugin-norg/compare/v1.3.4...v1.3.5) (2025-12-12)
+
+## [1.3.4](https://github.com/bottd/vite-plugin-norg/compare/v1.3.3...v1.3.4) (2025-12-11)
+
+
+### Bug Fixes
+
+* add permissions to renovate workflow ([c334812](https://github.com/bottd/vite-plugin-norg/commit/c334812f4e018da71076cba1f9b7fcf3867b0dea))
+
+## [1.3.3](https://github.com/bottd/vite-plugin-norg/compare/v1.3.2...v1.3.3) (2025-12-11)
+
+## [1.3.2](https://github.com/bottd/vite-plugin-norg/compare/v1.3.1...v1.3.2) (2025-12-10)
+
+
+### Bug Fixes
+
+* **deps:** pin dependencies ([#11](https://github.com/bottd/vite-plugin-norg/issues/11)) ([369c797](https://github.com/bottd/vite-plugin-norg/commit/369c7978142304b80e615887ca4f1a8f14d58cf9))
+
+## [1.3.1](https://github.com/bottd/vite-plugin-norg/compare/v1.3.0...v1.3.1) (2025-12-09)
+
+### Bug Fixes
+
+- update renovate config ([9bbedbc](https://github.com/bottd/vite-plugin-norg/commit/9bbedbc63570468b28d7141b7e9eeed4ecfd53ba))
+
+# [1.3.0](https://github.com/bottd/vite-plugin-norg/compare/v1.2.11...v1.3.0) (2025-12-09)
+
+### Bug Fixes
+
+- release on refactor, patch, chore ([7186f46](https://github.com/bottd/vite-plugin-norg/commit/7186f46bb0d6bc500636b01174866cceba30fe52))
+
+### Features
+
+- add renovate for automated dependency updates ([6e73e35](https://github.com/bottd/vite-plugin-norg/commit/6e73e35c7691b54371b2a3bb362fb54810eacac9))
+- add renovate for automated dependency updates ([fc41c3f](https://github.com/bottd/vite-plugin-norg/commit/fc41c3fbc471dd3ec9dd0924a44ba68f5a245b8c))
+- add renovate for automated dependency updates ([c6a57cd](https://github.com/bottd/vite-plugin-norg/commit/c6a57cd97eb04c4172819a8d2a1cc22b94b0b971))

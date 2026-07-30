@@ -1,0 +1,61 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Metadata Generator > ?metadata query > should generate correct metadata module for basic.mg via ?metadata query 1`] = `
+"export const metadata = {"author":"Drake Bott","tags":["test","basic"],"title":"Basic Mog"};
+export const toc = [{"level":1,"title":"Main Title","id":"main-title"},{"level":2,"title":"Lists","id":"lists"},{"level":2,"title":"Link","id":"link"}];
+export default { metadata, toc };"
+`;
+
+exports[`Metadata Generator > ?metadata query > should generate correct metadata module for code-blocks.mg via ?metadata query 1`] = `
+"export const metadata = {"title":"Code Test"};
+export const toc = [{"level":1,"title":"Code Blocks","id":"code-blocks"},{"level":2,"title":"JavaScript","id":"javascript"},{"level":2,"title":"Python","id":"python"},{"level":2,"title":"Plain","id":"plain"}];
+export default { metadata, toc };"
+`;
+
+exports[`Metadata Generator > ?metadata query > should generate correct metadata module for headings.mg via ?metadata query 1`] = `
+"export const metadata = {"title":"Headings"};
+export const toc = [{"level":1,"title":"H1","id":"h1"},{"level":2,"title":"H2","id":"h2"},{"level":3,"title":"H3","id":"h3"},{"level":4,"title":"H4","id":"h4"},{"level":5,"title":"H5","id":"h5"},{"level":6,"title":"H6","id":"h6"},{"level":6,"title":"H7 clamps to h6","id":"h7-clamps-to-h6"}];
+export default { metadata, toc };"
+`;
+
+exports[`Metadata Generator > ?metadata query > should generate correct metadata module for images.mg via ?metadata query 1`] = `
+"export const metadata = {"authors":"Drake Bott","title":"Images","version":"1.1.1"};
+export const toc = [{"level":1,"title":"Images","id":"images"}];
+export default { metadata, toc };"
+`;
+
+exports[`Metadata Generator > ?metadata query > should generate correct metadata module for links.mg via ?metadata query 1`] = `
+"export const metadata = {"author":"Drake Bott","title":"Link Test"};
+export const toc = [{"level":1,"title":"Link Types","id":"link-types"},{"level":2,"title":"External","id":"external"},{"level":2,"title":"Document References","id":"document-references"},{"level":2,"title":"Heading References","id":"heading-references"},{"level":2,"title":"Footnotes","id":"footnotes"},{"level":2,"title":"Mixed Content","id":"mixed-content"}];
+export default { metadata, toc };"
+`;
+
+exports[`Metadata Generator > mode: metadata > should generate correct metadata module for basic.mg 1`] = `
+"export const metadata = {"author":"Drake Bott","tags":["test","basic"],"title":"Basic Mog"};
+export const toc = [{"level":1,"title":"Main Title","id":"main-title"},{"level":2,"title":"Lists","id":"lists"},{"level":2,"title":"Link","id":"link"}];
+export default { metadata, toc };"
+`;
+
+exports[`Metadata Generator > mode: metadata > should generate correct metadata module for code-blocks.mg 1`] = `
+"export const metadata = {"title":"Code Test"};
+export const toc = [{"level":1,"title":"Code Blocks","id":"code-blocks"},{"level":2,"title":"JavaScript","id":"javascript"},{"level":2,"title":"Python","id":"python"},{"level":2,"title":"Plain","id":"plain"}];
+export default { metadata, toc };"
+`;
+
+exports[`Metadata Generator > mode: metadata > should generate correct metadata module for headings.mg 1`] = `
+"export const metadata = {"title":"Headings"};
+export const toc = [{"level":1,"title":"H1","id":"h1"},{"level":2,"title":"H2","id":"h2"},{"level":3,"title":"H3","id":"h3"},{"level":4,"title":"H4","id":"h4"},{"level":5,"title":"H5","id":"h5"},{"level":6,"title":"H6","id":"h6"},{"level":6,"title":"H7 clamps to h6","id":"h7-clamps-to-h6"}];
+export default { metadata, toc };"
+`;
+
+exports[`Metadata Generator > mode: metadata > should generate correct metadata module for images.mg 1`] = `
+"export const metadata = {"authors":"Drake Bott","title":"Images","version":"1.1.1"};
+export const toc = [{"level":1,"title":"Images","id":"images"}];
+export default { metadata, toc };"
+`;
+
+exports[`Metadata Generator > mode: metadata > should generate correct metadata module for links.mg 1`] = `
+"export const metadata = {"author":"Drake Bott","title":"Link Test"};
+export const toc = [{"level":1,"title":"Link Types","id":"link-types"},{"level":2,"title":"External","id":"external"},{"level":2,"title":"Document References","id":"document-references"},{"level":2,"title":"Heading References","id":"heading-references"},{"level":2,"title":"Footnotes","id":"footnotes"},{"level":2,"title":"Mixed Content","id":"mixed-content"}];
+export default { metadata, toc };"
+`;

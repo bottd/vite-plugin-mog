@@ -1,0 +1,76 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Svelte Generator > generates correct output for basic.mg 1`] = `
+"<script lang="ts" module>
+export const metadata = {"author":"Drake Bott","tags":["test","basic"],"title":"Basic Mog"};
+export const toc = [{"level":1,"title":"Main Title","id":"main-title"},{"level":2,"title":"Lists","id":"lists"},{"level":2,"title":"Link","id":"link"}];
+</script>
+{@html "<h1 id=\\"main-title\\">Main Title</h1>\\n<p>Text with <strong>bold</strong>, <em>italic</em>, <code>code</code>, and <s>strikethrough</s>.</p>\\n<h2 id=\\"lists\\">Lists</h2>\\n<ul><li>Item 1</li><li>Item 2</li></ul><ol><li>Number 1</li><li>Number 2</li></ol>\\n<h2 id=\\"link\\">Link</h2>\\n<p><a href=\\"https://example.com\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">link text</a></p>\\n"}"
+`;
+
+exports[`Svelte Generator > generates correct output for blocks.mg 1`] = `
+"<script lang="ts" module>
+export const metadata = {"title":"Blocks"};
+export const toc = [{"level":1,"title":"Blocks","id":"blocks"},{"level":2,"title":"Quotes","id":"quotes"},{"level":2,"title":"Block Form","id":"block-form"},{"level":2,"title":"Table","id":"table"},{"level":2,"title":"Thematic Break","id":"thematic-break"}];
+</script>
+{@html "<h1 id=\\"blocks\\">Blocks</h1>\\n<h2 id=\\"quotes\\">Quotes</h2>\\n<blockquote><p>First quote line</p><p>Second quote line</p><p>Quote parent</p><blockquote><p>Nested quote</p></blockquote></blockquote>\\n<h2 id=\\"block-form\\">Block Form</h2>\\n<ul><li>Reading notes<ul><li><p>Chapter 3 was particularly relevant:</p>\\n<blockquote><p>quote from chapter 3</p>\\n</blockquote>\\n</li></ul></li></ul>\\n<h2 id=\\"table\\">Table</h2>\\n<table><tbody><tr><th>Name</th><th>Type</th><th>Color</th></tr><tr><td>Apple</td><td>Fruit</td><td>Red</td></tr><tr><td><strong>Carrot</strong></td><td>Vegetable</td><td>Orange</td></tr><tr><td>Blueberry</td><td>Fruit</td><td></td></tr></tbody></table>\\n<h2 id=\\"thematic-break\\">Thematic Break</h2>\\n<hr />\\n"}"
+`;
+
+exports[`Svelte Generator > generates correct output for code-blocks.mg 1`] = `
+"<script lang="ts" module>
+export const metadata = {"title":"Code Test"};
+export const toc = [{"level":1,"title":"Code Blocks","id":"code-blocks"},{"level":2,"title":"JavaScript","id":"javascript"},{"level":2,"title":"Python","id":"python"},{"level":2,"title":"Plain","id":"plain"}];
+</script>
+{@html "<h1 id=\\"code-blocks\\">Code Blocks</h1>\\n<h2 id=\\"javascript\\">JavaScript</h2>\\n<pre class=\\"arborium lang-javascript\\"><code><span class=\\"line\\"><a-k>function</a-k> <a-f>hello</a-f><a-p>()</a-p> <a-p>{</a-p> <a-k>return</a-k> <a-s>&quot;world&quot;</a-s><a-p>;</a-p> <a-p>}</a-p></span></code></pre>\\n<h2 id=\\"python\\">Python</h2>\\n<pre class=\\"arborium lang-python\\"><code><span class=\\"line\\"><a-k>def</a-k> <a-f>add</a-f>(<a-v>a</a-v>, <a-v>b</a-v>):</span>\\n<span class=\\"line\\">    <a-k>return</a-k> <a-v>a</a-v> <a-o>+</a-o> <a-v>b</a-v></span></code></pre>\\n<h2 id=\\"plain\\">Plain</h2>\\n<pre><code><span class=\\"line\\">plain text</span></code></pre>\\n"}"
+`;
+
+exports[`Svelte Generator > generates correct output for embed-css.mg 1`] = `
+"<script lang="ts" module>
+export const metadata = {"title":"Embed CSS Test"};
+export const toc = [{"level":1,"title":"Styled Content","id":"styled-content"},{"level":1,"title":"More Styled Content","id":"more-styled-content"}];
+</script>
+<script lang="ts">
+import "virtual:mog-css:<fixtures>/embed-css.mg";
+</script>
+{@html "<h1 id=\\"styled-content\\">Styled Content</h1>\\n<p>This content has document-scoped CSS.</p>\\n<h1 id=\\"more-styled-content\\">More Styled Content</h1>\\n<p>Another section with additional styles.</p>\\n"}"
+`;
+
+exports[`Svelte Generator > generates correct output for headings.mg 1`] = `
+"<script lang="ts" module>
+export const metadata = {"title":"Headings"};
+export const toc = [{"level":1,"title":"H1","id":"h1"},{"level":2,"title":"H2","id":"h2"},{"level":3,"title":"H3","id":"h3"},{"level":4,"title":"H4","id":"h4"},{"level":5,"title":"H5","id":"h5"},{"level":6,"title":"H6","id":"h6"},{"level":6,"title":"H7 clamps to h6","id":"h7-clamps-to-h6"}];
+</script>
+{@html "<h1 id=\\"h1\\">H1</h1>\\n<p>Content 1</p>\\n<h2 id=\\"h2\\">H2</h2>\\n<p>Content 2</p>\\n<h3 id=\\"h3\\">H3</h3>\\n<p>Content 3</p>\\n<h4 id=\\"h4\\">H4</h4>\\n<p>Content 4</p>\\n<h5 id=\\"h5\\">H5</h5>\\n<p>Content 5</p>\\n<h6 id=\\"h6\\">H6</h6>\\n<p>Content 6</p>\\n<h6 id=\\"h7-clamps-to-h6\\">H7 clamps to h6</h6>\\n<p>Content 7</p>\\n"}"
+`;
+
+exports[`Svelte Generator > generates correct output for images.mg 1`] = `
+"<script lang="ts" module>
+export const metadata = {"authors":"Drake Bott","title":"Images","version":"1.1.1"};
+export const toc = [{"level":1,"title":"Images","id":"images"}];
+</script>
+{@html "<h1 id=\\"images\\">Images</h1>\\n<p>Image test</p>\\n<p><img src=\\"./relative/image.png\\" alt=\\"with alt text\\" /></p>\\n<p><img src=\\"/rooted/image.svg\\" alt=\\"rooted source\\" /></p>\\n"}"
+`;
+
+exports[`Svelte Generator > generates correct output for links.mg 1`] = `
+"<script lang="ts" module>
+export const metadata = {"author":"Drake Bott","title":"Link Test"};
+export const toc = [{"level":1,"title":"Link Types","id":"link-types"},{"level":2,"title":"External","id":"external"},{"level":2,"title":"Document References","id":"document-references"},{"level":2,"title":"Heading References","id":"heading-references"},{"level":2,"title":"Footnotes","id":"footnotes"},{"level":2,"title":"Mixed Content","id":"mixed-content"}];
+</script>
+{@html "<h1 id=\\"link-types\\">Link Types</h1>\\n<h2 id=\\"external\\">External</h2>\\n<p><a href=\\"https://example.com\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">https://example.com</a> <a href=\\"https://github.com/bottd/mog\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">Mog on GitHub</a></p>\\n<h2 id=\\"document-references\\">Document References</h2>\\n<p><a href=\\"recipe.html\\">recipe</a> <a href=\\"docs/readme.html\\">Readme</a></p>\\n<h2 id=\\"heading-references\\">Heading References</h2>\\n<p><a href=\\"#link-types\\">Back to the top</a></p>\\n<h2 id=\\"footnotes\\">Footnotes</h2>\\n<p>A good marinara starts with San Marzano tomatoes<sup class=\\"footnote-ref\\"><a href=\\"#footnote-1\\" id=\\"footnote-ref-1\\">1</a></sup>.</p>\\n<h2 id=\\"mixed-content\\">Mixed Content</h2>\\n<p>This paragraph has a <a href=\\"https://rust-lang.org\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">Rust website</a> and a <a href=\\"tutorial.html\\">tutorial document</a>.</p>\\n<aside class=\\"footnotes\\"><ol><li id=\\"footnote-1\\">A fruit, not a vegetable <a href=\\"#footnote-ref-1\\" class=\\"footnote-backref\\">&#x21a9;</a></li></ol></aside>\\n"}"
+`;
+
+exports[`Svelte Generator > generates correct output for nested-lists.mg 1`] = `
+"<script lang="ts" module>
+export const metadata = {"title":"Nested Lists"};
+export const toc = [{"level":1,"title":"Nested Lists","id":"nested-lists"},{"level":2,"title":"Two Levels","id":"two-levels"},{"level":2,"title":"Three Levels","id":"three-levels"},{"level":2,"title":"Mixed Markers","id":"mixed-markers"},{"level":2,"title":"Ordered With Nested","id":"ordered-with-nested"}];
+</script>
+{@html "<h1 id=\\"nested-lists\\">Nested Lists</h1>\\n<h2 id=\\"two-levels\\">Two Levels</h2>\\n<ul><li>Top level item<ul><li>Sub item A</li><li>Sub item B</li></ul></li><li>Another top level</li></ul>\\n<h2 id=\\"three-levels\\">Three Levels</h2>\\n<ul><li>Outer<ul><li>Middle<ul><li>Inner</li><li>Inner two</li></ul></li><li>Middle two</li></ul></li><li>Outer two</li></ul>\\n<h2 id=\\"mixed-markers\\">Mixed Markers</h2>\\n<ul><li>Bullet parent<ol><li>Numbered child A</li><li>Numbered child B</li></ol></li><li>Bullet parent two</li></ul>\\n<h2 id=\\"ordered-with-nested\\">Ordered With Nested</h2>\\n<ol><li>First<ol><li>Nested first</li><li>Nested second</li></ol></li><li>Second</li></ol>\\n"}"
+`;
+
+exports[`Svelte Generator > generates correct output for tasks.mg 1`] = `
+"<script lang="ts" module>
+export const metadata = {"title":"Tasks"};
+export const toc = [{"level":1,"title":"Tasks","id":"tasks"}];
+</script>
+{@html "<h1 id=\\"tasks\\">Tasks</h1>\\n<ul><li class=\\"task task-doing\\"><span class=\\"task-status task-doing\\">&#x2192;</span> Grocery shopping<ul><li class=\\"task task-done\\"><input type=\\"checkbox\\" class=\\"task-status task-done\\" checked disabled /> Eggs</li><li class=\\"task task-doing\\"><span class=\\"task-status task-doing\\">&#x2192;</span> Milk</li><li class=\\"task task-uncertain\\"><span class=\\"task-status task-uncertain\\">?</span> Oat or almond?</li></ul></li><li class=\\"task task-undone\\"><input type=\\"checkbox\\" class=\\"task-status task-undone\\" disabled /> Clean kitchen</li><li class=\\"task task-cancelled\\"><span class=\\"task-status task-cancelled\\">&#x2715;</span> Return sweater</li><li class=\\"task task-done urgent\\"><input type=\\"checkbox\\" class=\\"task-status task-done\\" checked disabled /> Call dentist</li></ul><ol><li class=\\"task task-undone\\"><input type=\\"checkbox\\" class=\\"task-status task-undone\\" disabled /> Ordered tasks work too</li></ol>\\n"}"
+`;

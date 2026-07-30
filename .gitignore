@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+target/
+
+# Per-platform packages: `napi create-npm-dirs` regenerates them from
+# package.json during the release job, binaries included
+npm/
+*.node
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.direnv
+.pre-commit-config.yaml
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Package files
+*.tgz
+
+# Test scratch projects
+tests/.tmp/

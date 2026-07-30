@@ -1,0 +1,10 @@
+---
+source: tests/parser_tests.rs
+expression: "(rendered.parts.join(\"\"), rendered.toc, metadata, rendered.css)"
+---
+- "<h1 id=\"tasks\">Tasks</h1>\n<ul><li class=\"task task-doing\"><span class=\"task-status task-doing\">&#x2192;</span> Grocery shopping<ul><li class=\"task task-done\"><input type=\"checkbox\" class=\"task-status task-done\" checked disabled /> Eggs</li><li class=\"task task-doing\"><span class=\"task-status task-doing\">&#x2192;</span> Milk</li><li class=\"task task-uncertain\"><span class=\"task-status task-uncertain\">?</span> Oat or almond?</li></ul></li><li class=\"task task-undone\"><input type=\"checkbox\" class=\"task-status task-undone\" disabled /> Clean kitchen</li><li class=\"task task-cancelled\"><span class=\"task-status task-cancelled\">&#x2715;</span> Return sweater</li><li class=\"task task-done urgent\"><input type=\"checkbox\" class=\"task-status task-done\" checked disabled /> Call dentist</li></ul><ol><li class=\"task task-undone\"><input type=\"checkbox\" class=\"task-status task-undone\" disabled /> Ordered tasks work too</li></ol>\n"
+- - level: 1
+    title: Tasks
+    id: tasks
+- title: Tasks
+- ""

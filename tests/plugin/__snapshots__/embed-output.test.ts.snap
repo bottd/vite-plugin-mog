@@ -1,0 +1,73 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`document modules with component embeds > wires html embeds into the document module 1`] = `
+"
+export const metadata = {"title":"Embed HTML Test"};
+export const html = "<h1 id=\\"testing-html-embeds\\">Testing HTML Embeds</h1>\\n<figure class=\\"chart\\"><figcaption>Inline markup</figcaption></figure><p>Text after the embed.</p>\\n";
+export const toc = [{"level":1,"title":"Testing HTML Embeds","id":"testing-html-embeds"}];
+
+export default { metadata, html, toc };"
+`;
+
+exports[`document modules with component embeds > wires react embeds into the document module 1`] = `
+"import Embed0 from "<fixtures>/embed-react.mg?embed=0";
+import Embed1 from "<fixtures>/embed-react.mg?embed=1";
+import Embed2 from "<fixtures>/embed-react.mg?embed=2";
+
+export const metadata = {"title":"Embed React Test"};
+export const toc = [{"level":1,"title":"Testing React Embeds","id":"testing-react-embeds"},{"level":1,"title":"Multiple Embeds","id":"multiple-embeds"},{"level":1,"title":"Content After Embeds","id":"content-after-embeds"}];
+
+export function Component() {
+  return <><div dangerouslySetInnerHTML={{ __html: "<h1 id=\\"testing-react-embeds\\">Testing React Embeds</h1>\\n<p>This is a counter component:</p>\\n" }} />
+    <Embed0 />
+    <div dangerouslySetInnerHTML={{ __html: "<h1 id=\\"multiple-embeds\\">Multiple Embeds</h1>\\n<p>First embed:</p>\\n" }} />
+    <Embed1 />
+    <div dangerouslySetInnerHTML={{ __html: "<p>Second embed:</p>\\n" }} />
+    <Embed2 />
+    <div dangerouslySetInnerHTML={{ __html: "<h1 id=\\"content-after-embeds\\">Content After Embeds</h1>\\n<p>This text comes after the embeds.</p>\\n" }} /></>;
+}
+export default Component;"
+`;
+
+exports[`document modules with component embeds > wires svelte embeds into the document module 1`] = `
+"<script lang="ts" module>
+export const metadata = {"title":"Embed Test"};
+export const toc = [{"level":1,"title":"Testing Svelte Embeds","id":"testing-svelte-embeds"},{"level":1,"title":"Multiple Embeds","id":"multiple-embeds"},{"level":1,"title":"Content Between Embeds","id":"content-between-embeds"}];
+</script>
+<script lang="ts">
+import Embed0 from "<fixtures>/embed.mg?embed=0";
+import Embed1 from "<fixtures>/embed.mg?embed=1";
+import Embed2 from "<fixtures>/embed.mg?embed=2";
+import Embed3 from "<fixtures>/embed.mg?embed=3";
+</script>
+{@html "<h1 id=\\"testing-svelte-embeds\\">Testing Svelte Embeds</h1>\\n<p>This is a counter component:</p>\\n"}
+<Embed0 />
+{@html "<h1 id=\\"multiple-embeds\\">Multiple Embeds</h1>\\n<p>First embed:</p>\\n"}
+<Embed1 />
+{@html "<p>Second embed:</p>\\n"}
+<Embed2 />
+{@html "<h1 id=\\"content-between-embeds\\">Content Between Embeds</h1>\\n<p>This text is between two embed blocks.</p>\\n"}
+<Embed3 />
+{@html "<p>This text comes after the third embed.</p>\\n"}"
+`;
+
+exports[`document modules with component embeds > wires vue embeds into the document module 1`] = `
+"<script lang="ts">
+export const metadata = {"title":"Embed Vue Test"};
+export const toc = [{"level":1,"title":"Testing Vue Embeds","id":"testing-vue-embeds"},{"level":1,"title":"Content After Embeds","id":"content-after-embeds"}];
+</script>
+<script setup lang="ts">
+import Embed0 from "<fixtures>/embed-vue.mg?embed=0";
+const htmlParts = ["<h1 id=\\"testing-vue-embeds\\">Testing Vue Embeds</h1>\\n<p>This is a counter component:</p>\\n","<h1 id=\\"content-after-embeds\\">Content After Embeds</h1>\\n<p>This text comes after the embed.</p>\\n"];
+
+defineExpose({ metadata, toc });
+</script>
+
+<template>
+  <div>
+  <div v-html="htmlParts[0]"></div>
+  <Embed0 />
+  <div v-html="htmlParts[1]"></div>
+</div>
+</template>"
+`;

@@ -1,0 +1,24 @@
+``meta:
+title "Headings"
+``
+
+# H1
+Content 1
+
+## H2
+Content 2
+
+### H3
+Content 3
+
+#### H4
+Content 4
+
+##### H5
+Content 5
+
+###### H6
+Content 6
+
+####### H7 clamps to h6
+Content 7
