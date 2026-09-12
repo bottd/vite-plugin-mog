@@ -4,7 +4,7 @@
   "homepage": "https://github.com/bottd/vite-plugin-mog#README",
   "name": "vite-plugin-mog",
   "version": "0.2.1",
-  "packageManager": "pnpm@11.13.1",
+  "packageManager": "pnpm@12.4.1",
   "type": "module",
   "description": "A Vite plugin for rendering Mog files",
   "main": "dist/plugin/index.js",
