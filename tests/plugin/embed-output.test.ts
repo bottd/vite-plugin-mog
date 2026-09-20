@@ -1,7 +1,10 @@
 import { join } from 'node:path';
+import type { ContainerTag, OutputMode, Segment } from '@parser';
+import { compile as compileSvelte } from 'svelte/compiler';
+import { compileTemplate, parse as parseVue } from 'vue/compiler-sfc';
 import { mogPlugin } from '../../src/plugin/index.js';
-import type { GeneratorMode } from '../../src/plugin/generators';
-import { fixturesDir, loadCode } from './fixtures';
+import { generateOutput, type GeneratorMode } from '../../src/plugin/generators';
+import { fixturesDir, loadCode, parseResult } from './fixtures';
 
 // The document module that imports `<Embed0 />` is the most intricate code any
 // generator emits, and no snapshot covered it. One fixture per mode, because an
@@ -38,6 +41,65 @@ describe('document modules with component embeds', () => {
       }
     }
   );
+
+  describe('a container lifted around an embed', () => {
+    const embedComponents = [{ index: 0, mode: 'svelte' as OutputMode, code: '<b>embedded</b>' }];
+    // `@parser` is mocked here, so the enum has no runtime value: the names are
+    // checked against it as types instead.
+    const tag = (name: `${ContainerTag}`) => name as ContainerTag;
+    const segments: Segment[] = [
+      { kind: 'open', tag: tag('div'), classes: 'card "quoted"' },
+      { kind: 'open', tag: tag('ol'), classes: '' },
+      { kind: 'open', tag: tag('li'), classes: 'task' },
+      { kind: 'html', html: 'one' },
+      { kind: 'close', tag: tag('li') },
+      { kind: 'open', tag: tag('li'), classes: '' },
+      { kind: 'html', html: 'two' },
+      { kind: 'embed', index: 0 },
+      { kind: 'close', tag: tag('li') },
+      { kind: 'close', tag: tag('ol') },
+      { kind: 'close', tag: tag('div') },
+    ];
+    const generate = (mode: GeneratorMode) =>
+      generateOutput(mode, parseResult({ segments, embedComponents }), '', '/doc.mg');
+
+    it.each(['svelte', 'react', 'vue'] as const)('%s nests the embed in its containers', mode => {
+      expect(generate(mode)).toMatchSnapshot();
+    });
+
+    it('svelte output compiles, with the embed inside the item', () => {
+      const code = generate('svelte');
+      expect(() => compileSvelte(code, {})).not.toThrow();
+      expect(code).toMatch(/<li>\s*\{@html "two"\}\s*<Embed0 \/>\s*<\/li>/);
+    });
+
+    it('vue output compiles', () => {
+      const { descriptor, errors } = parseVue(generate('vue'));
+      expect(errors).toEqual([]);
+      const template = compileTemplate({
+        source: descriptor.template?.content ?? '',
+        filename: 'doc.vue',
+        id: 'doc',
+      });
+      expect(template.errors).toEqual([]);
+    });
+
+    it.each([
+      ['react', '<li className={"task"} dangerouslySetInnerHTML={{ __html: "one" }} />'],
+      ['vue', '<li class="task" v-html="html[0]"></li>'],
+    ] as const)('%s gives an html-only item no wrapper', (mode, item) => {
+      expect(generate(mode)).toContain(item);
+    });
+
+    it('html mode writes the containers back as tags around the embed code', () => {
+      expect(generate('html')).toContain(
+        JSON.stringify(
+          '<div class="card &quot;quoted&quot;"><ol><li class="task">one</li>' +
+            '<li>two<b>embedded</b></li></ol></div>'
+        )
+      );
+    });
+  });
 
   it('inlines embeds into the html string rather than importing them', async () => {
     const plugin = mogPlugin({ mode: 'html', include: ['**/*.mg'] });

@@ -1,4 +1,4 @@
-``meta:
+``attr:
 title "Embeds"
 description "Inline markup and document CSS inside a Mog document"
 ``

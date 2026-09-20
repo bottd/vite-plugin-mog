@@ -1,20 +1,35 @@
-import type { MogParseResult } from '../types/parser.js';
-import { addDocumentCssImport, addEmbedImports, lines, serializeJs } from './helpers.js';
+import type { MogParseResult } from '@parser';
+import {
+  addDocumentCssImport,
+  addEmbedImports,
+  classAttr,
+  htmlSlots,
+  joinSegments,
+  lines,
+  serializeJs,
+  writeSegments,
+} from './helpers.js';
 
 export function generateVue(
-  { htmlParts, metadata, toc, embedComponents = [], embedCss = '' }: MogParseResult,
+  { segments, metadata, toc, embedComponents = [], embedCss = '' }: MogParseResult,
   css: string,
   filePath?: string
 ): string {
-  const templateContent =
-    embedComponents.length === 0
-      ? '<div v-html="htmlContent"></div>'
-      : `<div>\n${htmlParts
-          .flatMap((part, i) => [
-            `  <div v-html="htmlParts[${i}]"></div>`,
-            ...(i < embedComponents.length ? [`  <Embed${i} />`] : []),
-          ])
-          .join('\n')}\n</div>`;
+  const hasEmbeds = embedComponents.length > 0;
+  const template = hasEmbeds
+    ? [
+        '<div>',
+        ...writeSegments(segments, {
+          html: (_html, slot) => `<div style="display: contents" v-html="html[${slot}]"></div>`,
+          embed: i => `<Embed${i} />`,
+          open: (tag, classes) => `<${tag}${classAttr(classes)}>`,
+          close: tag => `</${tag}>`,
+          leaf: (tag, classes, _html, slot) =>
+            `<${tag}${classAttr(classes)} v-html="html[${slot}]"></${tag}>`,
+        }).map(line => `  ${line}`),
+        '</div>',
+      ]
+    : ['<div v-html="html"></div>'];
 
   return lines(
     '<script lang="ts">',
@@ -25,15 +40,13 @@ export function generateVue(
     css ? 'import "virtual:mog-arborium.css";' : null,
     addDocumentCssImport(embedCss, filePath),
     addEmbedImports(embedComponents, filePath),
-    embedComponents.length > 0
-      ? `const htmlParts = ${JSON.stringify(htmlParts)};`
-      : `const htmlContent = ${JSON.stringify(htmlParts.join(''))};`,
+    `const html = ${JSON.stringify(hasEmbeds ? htmlSlots(segments) : joinSegments(segments, () => ''))};`,
     '',
     'defineExpose({ metadata, toc });',
     '</script>',
     '',
     '<template>',
-    `  ${templateContent}`,
+    template.map(line => `  ${line}`),
     '</template>'
   );
 }

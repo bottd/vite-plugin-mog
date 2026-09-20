@@ -1,17 +1,21 @@
-import type { MogParseResult } from '../types/parser.js';
-import { addDocumentCssImport, addEmbedImports, lines } from './helpers.js';
+import type { MogParseResult } from '@parser';
+import { addDocumentCssImport, addEmbedImports, lines, writeSegments } from './helpers.js';
+
+const className = (classes: string) => (classes ? ` className={${JSON.stringify(classes)}}` : '');
+const innerHtml = (html: string) => `dangerouslySetInnerHTML={{ __html: ${JSON.stringify(html)} }}`;
 
 export function generateReact(
-  { htmlParts, metadata, toc, embedComponents = [], embedCss = '' }: MogParseResult,
+  { segments, metadata, toc, embedComponents = [], embedCss = '' }: MogParseResult,
   css: string,
   filePath?: string
 ): string {
-  const children = htmlParts
-    .flatMap((part, i) => [
-      `<div dangerouslySetInnerHTML={{ __html: ${JSON.stringify(part)} }} />`,
-      ...(i < embedComponents.length ? [`<Embed${i} />`] : []),
-    ])
-    .join('\n    ');
+  const children = writeSegments(segments, {
+    html: html => `<div style={{ display: 'contents' }} ${innerHtml(html)} />`,
+    embed: i => `<Embed${i} />`,
+    open: (tag, classes) => `<${tag}${className(classes)}>`,
+    close: tag => `</${tag}>`,
+    leaf: (tag, classes, html) => `<${tag}${className(classes)} ${innerHtml(html)} />`,
+  });
 
   return lines(
     css ? 'import "virtual:mog-arborium.css";' : null,
@@ -22,7 +26,11 @@ export function generateReact(
     `export const toc = ${JSON.stringify(toc ?? [])};`,
     '',
     'export function Component() {',
-    `  return <>${children}</>;`,
+    '  return (',
+    '    <>',
+    children.map(line => `      ${line}`),
+    '    </>',
+    '  );',
     '}',
     'export default Component;'
   );

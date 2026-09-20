@@ -1,4 +1,4 @@
-``meta:
+``attr:
 title "Mog in Svelte"
 description "A Mog document compiled to a Svelte component"
 ``

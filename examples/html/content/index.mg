@@ -1,4 +1,4 @@
-``meta:
+``attr:
 title "Mog as HTML"
 description "A Mog document compiled to an HTML string"
 ``

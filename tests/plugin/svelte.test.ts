@@ -1,9 +1,8 @@
 import { join } from 'node:path';
 import { compile } from 'svelte/compiler';
-import type { MogParseResult } from '@parser';
 import { mogPlugin } from '../../src/plugin/index.js';
 import { generateSvelte } from '../../src/plugin/generators/svelte.js';
-import { fixturesDir, fixtures, loadCode } from './fixtures';
+import { fixturesDir, fixtures, loadCode, parseResult } from './fixtures';
 
 describe('Svelte Generator', () => {
   const plugin = mogPlugin({ mode: 'svelte', include: ['**/*.mg'] });
@@ -16,13 +15,10 @@ describe('Svelte Generator', () => {
   });
 
   it('escapes metadata that could terminate a script block', () => {
-    const result: MogParseResult = {
+    const result = parseResult({
       metadata: { title: '</script><div>broken</div>' },
-      htmlParts: ['<p>Safe</p>'],
-      toc: [],
-      embedComponents: [],
-      embedCss: '',
-    };
+      segments: [{ kind: 'html', html: '<p>Safe</p>' }],
+    });
     const code = generateSvelte(result, '', '/tmp/document.mg');
 
     expect(code).not.toContain('</script><div>broken</div>');

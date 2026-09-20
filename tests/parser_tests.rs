@@ -1,6 +1,9 @@
 use insta::assert_yaml_snapshot;
 use std::fs;
-use vite_plugin_mog_parser::{MogParseResult, extract_metadata, parse_on_bounded_stack, render};
+use vite_plugin_mog_parser::{
+    MogParseResult, OutputMode, Segment, extract_metadata, parse_on_bounded_stack, render,
+    segments_html,
+};
 
 // The napi export is async; this is the same parse without the promise.
 fn parse(content: &str) -> MogParseResult {
@@ -25,11 +28,11 @@ fn fixture_files_render() {
         let document = mog_parser::parse(&content);
         let rendered =
             render(&document, None).unwrap_or_else(|_| panic!("failed to render {path}"));
-        let metadata = extract_metadata(document.meta.as_deref());
+        let metadata = extract_metadata(document.attributes.as_deref());
         assert_yaml_snapshot!(
             path,
             (
-                rendered.parts.join(""),
+                segments_html(&rendered.segments),
                 rendered.toc,
                 metadata,
                 rendered.css
@@ -39,18 +42,18 @@ fn fixture_files_render() {
 }
 
 #[test]
-fn css_embeds_do_not_split_parts() {
+fn css_embeds_leave_the_markup_whole() {
     let result = parse("``embed:css:\n.test { color: red; }\n``\n");
 
     assert!(result.embed_components.is_empty());
     assert!(result.embed_css.contains(".test { color: red; }"));
-    assert_eq!(result.html_parts.len(), 1);
+    assert!(result.segments.is_empty(), "{:?}", result.segments);
 }
 
 #[test]
 fn embed_component_indexes_ignore_css_declarations() {
     let content = "``embed:css:\n.foo {}\n``\n\n``embed:svelte:\n<div>one</div>\n``\n\n``embed:svelte:\n<div>two</div>\n``\n";
-    let result = parse_on_bounded_stack(content, Some("svelte")).unwrap();
+    let result = parse_on_bounded_stack(content, Some(OutputMode::svelte)).unwrap();
 
     let indexes: Vec<_> = result
         .embed_components
@@ -58,14 +61,16 @@ fn embed_component_indexes_ignore_css_declarations() {
         .map(|embed| embed.index)
         .collect();
     assert_eq!(indexes, [0, 1]);
-    // One part before each embed, plus the tail.
-    assert_eq!(result.html_parts.len(), 3);
+    assert_eq!(
+        result.segments,
+        [Segment::Embed { index: 0 }, Segment::Embed { index: 1 }]
+    );
 }
 
 #[test]
 fn embed_errors_report_the_declaration_ordinal() {
     let content = "``embed:css:\n.foo {}\n``\n\n``embed:bogus:\ncontent\n``\n";
-    let message = match parse_on_bounded_stack(content, Some("html")) {
+    let message = match parse_on_bounded_stack(content, Some(OutputMode::html)) {
         Ok(_) => panic!("expected an embed error"),
         Err(error) => error,
     };
@@ -82,7 +87,7 @@ fn embeds_are_skipped_without_a_mode() {
     let result = parse("``embed:svelte:\n<div>one</div>\n``\n");
 
     assert!(result.embed_components.is_empty());
-    assert_eq!(result.html_parts.len(), 1);
+    assert!(result.segments.is_empty(), "{:?}", result.segments);
 }
 
 #[test]
@@ -91,13 +96,13 @@ fn deep_nesting_parses_on_the_bounded_stack() {
         .map(|level| format!("{} item\n", "-".repeat(level)))
         .collect();
 
-    assert!(!parse(&content).html_parts.is_empty());
+    assert!(!parse(&content).segments.is_empty());
 }
 
 #[test]
 fn heading_levels_and_empty_ids_stay_valid() {
     let result = parse("####### Deep heading\n\n# ***\n");
-    let html = result.html_parts.concat();
+    let html = segments_html(&result.segments);
 
     assert!(
         html.contains(r#"<h6 id="deep-heading">Deep heading</h6>"#),
@@ -115,7 +120,7 @@ fn duplicate_heading_titles_get_distinct_ids() {
     let ids: Vec<_> = result.toc.iter().map(|entry| entry.id.as_str()).collect();
 
     assert_eq!(ids, ["setup", "setup-1", "setup-1-1"]);
-    let html = result.html_parts.concat();
+    let html = segments_html(&result.segments);
     for id in ids {
         assert!(html.contains(&format!(r#"id="{id}""#)), "{html}");
     }

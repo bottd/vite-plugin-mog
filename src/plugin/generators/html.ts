@@ -1,17 +1,11 @@
-import type { EmbedComponent, MogParseResult } from '../types/parser.js';
-import { lines } from './helpers.js';
-
-function mergeEmbeds(htmlParts: string[], embeds: EmbedComponent[]): string {
-  return htmlParts
-    .flatMap((part, i) => (i < embeds.length ? [part, embeds[i].code] : [part]))
-    .join('');
-}
+import type { MogParseResult } from '@parser';
+import { joinSegments, lines } from './helpers.js';
 
 export function generateHtml(
-  { htmlParts, metadata, toc, embedComponents = [], embedCss = '' }: MogParseResult,
+  { segments, metadata, toc, embedComponents = [], embedCss = '' }: MogParseResult,
   css: string
 ): string {
-  const raw = mergeEmbeds(htmlParts, embedComponents);
+  const raw = joinSegments(segments, i => embedComponents[i]?.code ?? '');
   // The framework modes import `virtual:mog-css:` and let Vite own the CSS.
   // html mode inlines a <style> instead, on purpose: the `html` export is
   // routinely written straight to a file, and styles have to travel with it.

@@ -1,4 +1,4 @@
-``meta:
+``attr:
 title "Basic Mog"
 author "Drake Bott"
 tags "test" "basic"

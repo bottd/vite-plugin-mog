@@ -1,5 +1,4 @@
-import type { OutputMode } from '@parser';
-import type { MogParseResult } from '../types/parser.js';
+import type { MogParseResult, OutputMode } from '@parser';
 import { generateHtml } from './html.js';
 import { generateSvelte } from './svelte.js';
 import { generateReact } from './react.js';

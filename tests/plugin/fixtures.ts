@@ -1,5 +1,6 @@
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import type { MogParseResult } from '@parser';
 
 export const fixturesDir = join(import.meta.dirname, '../fixtures');
 export const componentsDir = join(fixturesDir, 'components');
@@ -18,6 +19,18 @@ const notRenderable = new Set([
 export const fixtures = readdirSync(fixturesDir).filter(
   name => name.endsWith('.mg') && !notRenderable.has(name)
 );
+
+/** An otherwise-empty parse result, for driving a generator directly. */
+export function parseResult(overrides: Partial<MogParseResult> = {}): MogParseResult {
+  return {
+    metadata: {},
+    segments: [],
+    toc: [],
+    embedComponents: [],
+    embedCss: '',
+    ...overrides,
+  };
+}
 
 export async function loadCode(
   plugin: { load?: (id: string) => unknown | Promise<unknown> },

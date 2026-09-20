@@ -1701,11 +1701,11 @@ dependencies = [
 [[package]]
 name = "mog-parser"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e952dae97fd6f0ae2d45e1b0f32eafbc9f69f684af19a78967c0d51ed8b0e5af"
+source = "git+https://github.com/bottd/mog.git?rev=57b31bfb390982f1b6ec0cb138727b40697c6f31#57b31bfb390982f1b6ec0cb138727b40697c6f31"
 dependencies = [
  "kdl",
  "serde",
+ "winnow",
 ]
 
 [[package]]

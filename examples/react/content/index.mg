@@ -1,4 +1,4 @@
-``meta:
+``attr:
 title "Mog in React"
 description "A Mog document compiled to a React component"
 ``

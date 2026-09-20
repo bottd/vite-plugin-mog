@@ -1,4 +1,4 @@
-import { html, toc } from '../content/index.mg';
+import { html, toc, metadata } from '../content/index.mg';
 import { render } from './layout';
 
-render(html, toc);
+render(html, toc, metadata);

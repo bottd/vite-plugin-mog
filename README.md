@@ -35,7 +35,7 @@ The other modes are `vite-plugin-mog/react`, `/vue`, `/html`, and `/metadata`.
 ## A Mog document
 
 ```mog
-``meta:
+``attr:
 title "My Document"
 author "Drake Bott"
 tags "guide" "intro"
@@ -60,10 +60,25 @@ def greet(name):
 ``
 ```
 
-A document declares metadata by opening with a `meta` verbatim block written in
-[KDL](https://kdl.dev). Its fields become the `metadata` export. Only the first
-block counts; a `meta` block further down is an ordinary verbatim block. The
-[Mog spec](https://github.com/bottd/mog) has the full syntax.
+A document declares metadata in an `attr` verbatim block written in
+[KDL](https://kdl.dev), whose fields become the `metadata` export. Every
+`attr` block at the top level merges into the document, in source order, so the
+front matter can be split up or appended to further down. A key set twice keeps
+its first value, with a build warning. An `attr` block indented under a marker
+attaches to that node instead of the document.
+
+> **Renamed:** this block was `meta`, and node attributes were `data`. Both
+> spellings now parse as ordinary verbatim blocks — the content renders as a code
+> block and contributes no metadata. The plugin emits a build warning naming the
+> file where the old parser would have read one — a `meta` block opening the
+> document, a `data` block at its top level — so a stale document is loud rather
+> than silent, while a code sample in either language is left alone.
+>
+> This tracks an unreleased parser, pinned by commit. A published `mog-parser` is
+> on the way; expect further syntax movement until then, and the deprecation
+> warning to go away with it.
+
+The [Mog spec](https://github.com/bottd/mog) has the full syntax.
 
 ## Options
 
@@ -161,6 +176,11 @@ With some regular text
 <Chart variant="bar" />
 ``
 ```
+
+An embed can sit inside a block or a list item. The plugin builds the
+containers around it — the block's `<div>`, the list and its items — as real
+elements of the component, so the embed is a true child of them and rules like
+`.card > *` reach it the same way in every mode.
 
 Point `componentDir` at a directory of components, or map imports yourself:
 

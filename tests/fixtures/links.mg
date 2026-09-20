@@ -1,4 +1,4 @@
-``meta:
+``attr:
 title "Link Test"
 author "Drake Bott"
 ``

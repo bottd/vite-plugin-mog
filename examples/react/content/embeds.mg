@@ -1,4 +1,4 @@
-``meta:
+``attr:
 title "Embeds"
 description "Live components and document CSS inside a Mog document"
 ``

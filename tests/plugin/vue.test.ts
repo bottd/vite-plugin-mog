@@ -1,8 +1,7 @@
 import { join } from 'node:path';
-import type { MogParseResult } from '@parser';
 import { mogPlugin } from '../../src/plugin/index.js';
 import { generateVue } from '../../src/plugin/generators/vue.js';
-import { fixturesDir, fixtures, loadCode } from './fixtures';
+import { fixturesDir, fixtures, loadCode, parseResult } from './fixtures';
 
 describe('Vue Generator', () => {
   const plugin = mogPlugin({ mode: 'vue', include: ['**/*.mg'] });
@@ -15,13 +14,11 @@ describe('Vue Generator', () => {
   });
 
   it('escapes script data and imports document CSS as a virtual module', () => {
-    const result: MogParseResult = {
+    const result = parseResult({
       metadata: { title: '</script><div>broken</div>' },
-      htmlParts: ['<p>Safe</p>'],
-      toc: [],
-      embedComponents: [],
+      segments: [{ kind: 'html', html: '<p>Safe</p>' }],
       embedCss: 'p::before { content: "</style>"; }',
-    };
+    });
     const code = generateVue(result, '', '/tmp/document.mg');
 
     expect(code).not.toContain('</script><div>broken</div>');

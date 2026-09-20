@@ -1,4 +1,4 @@
-``meta:
+``attr:
 title "Images"
 authors "Drake Bott"
 version "1.1.1"

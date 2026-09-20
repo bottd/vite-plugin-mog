@@ -1,4 +1,4 @@
-``meta:
+``attr:
 title "Embed React Test"
 ``
 

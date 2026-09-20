@@ -1,20 +1,8 @@
-export interface EmbedComponent {
-  index: number;
-  mode: string;
-  code: string;
-}
-
+// The parser's own types come from `@parser`, generated from the Rust source.
+// Only what the plugin re-exports publicly is restated here, so the published
+// declarations never point consumers at the internal `@parser` alias.
 export interface TocEntry {
   level: number;
   title: string;
   id: string;
-}
-
-export interface MogParseResult {
-  metadata: Record<string, unknown>;
-  htmlParts: string[];
-  toc: TocEntry[];
-  embedComponents: EmbedComponent[];
-  embedCss: string;
-  diagnostics?: string[];
 }

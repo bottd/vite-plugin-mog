@@ -1,5 +1,77 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`document modules with component embeds > a container lifted around an embed > react nests the embed in its containers 1`] = `
+"import Embed0 from "/doc.mg?embed=0";
+
+export const metadata = {};
+export const toc = [];
+
+export function Component() {
+  return (
+    <>
+      <div className={"card \\"quoted\\""}>
+        <ol>
+          <li className={"task"} dangerouslySetInnerHTML={{ __html: "one" }} />
+          <li>
+            <div style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: "two" }} />
+            <Embed0 />
+          </li>
+        </ol>
+      </div>
+    </>
+  );
+}
+export default Component;"
+`;
+
+exports[`document modules with component embeds > a container lifted around an embed > svelte nests the embed in its containers 1`] = `
+"<script lang="ts" module>
+export const metadata = {};
+export const toc = [];
+</script>
+<script lang="ts">
+import Embed0 from "/doc.mg?embed=0";
+</script>
+<div class={"card \\"quoted\\""}>
+  <ol>
+    <li class={"task"}>
+      {@html "one"}
+    </li>
+    <li>
+      {@html "two"}
+      <Embed0 />
+    </li>
+  </ol>
+</div>"
+`;
+
+exports[`document modules with component embeds > a container lifted around an embed > vue nests the embed in its containers 1`] = `
+"<script lang="ts">
+export const metadata = {};
+export const toc = [];
+</script>
+<script setup lang="ts">
+import Embed0 from "/doc.mg?embed=0";
+const html = ["one","two"];
+
+defineExpose({ metadata, toc });
+</script>
+
+<template>
+  <div>
+    <div class="card &quot;quoted&quot;">
+      <ol>
+        <li class="task" v-html="html[0]"></li>
+        <li>
+          <div style="display: contents" v-html="html[1]"></div>
+          <Embed0 />
+        </li>
+      </ol>
+    </div>
+  </div>
+</template>"
+`;
+
 exports[`document modules with component embeds > wires html embeds into the document module 1`] = `
 "
 export const metadata = {"title":"Embed HTML Test"};
@@ -18,13 +90,17 @@ export const metadata = {"title":"Embed React Test"};
 export const toc = [{"level":1,"title":"Testing React Embeds","id":"testing-react-embeds"},{"level":1,"title":"Multiple Embeds","id":"multiple-embeds"},{"level":1,"title":"Content After Embeds","id":"content-after-embeds"}];
 
 export function Component() {
-  return <><div dangerouslySetInnerHTML={{ __html: "<h1 id=\\"testing-react-embeds\\">Testing React Embeds</h1>\\n<p>This is a counter component:</p>\\n" }} />
-    <Embed0 />
-    <div dangerouslySetInnerHTML={{ __html: "<h1 id=\\"multiple-embeds\\">Multiple Embeds</h1>\\n<p>First embed:</p>\\n" }} />
-    <Embed1 />
-    <div dangerouslySetInnerHTML={{ __html: "<p>Second embed:</p>\\n" }} />
-    <Embed2 />
-    <div dangerouslySetInnerHTML={{ __html: "<h1 id=\\"content-after-embeds\\">Content After Embeds</h1>\\n<p>This text comes after the embeds.</p>\\n" }} /></>;
+  return (
+    <>
+      <div style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: "<h1 id=\\"testing-react-embeds\\">Testing React Embeds</h1>\\n<p>This is a counter component:</p>\\n" }} />
+      <Embed0 />
+      <div style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: "<h1 id=\\"multiple-embeds\\">Multiple Embeds</h1>\\n<p>First embed:</p>\\n" }} />
+      <Embed1 />
+      <div style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: "<p>Second embed:</p>\\n" }} />
+      <Embed2 />
+      <div style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: "<h1 id=\\"content-after-embeds\\">Content After Embeds</h1>\\n<p>This text comes after the embeds.</p>\\n" }} />
+    </>
+  );
 }
 export default Component;"
 `;
@@ -58,16 +134,16 @@ export const toc = [{"level":1,"title":"Testing Vue Embeds","id":"testing-vue-em
 </script>
 <script setup lang="ts">
 import Embed0 from "<fixtures>/embed-vue.mg?embed=0";
-const htmlParts = ["<h1 id=\\"testing-vue-embeds\\">Testing Vue Embeds</h1>\\n<p>This is a counter component:</p>\\n","<h1 id=\\"content-after-embeds\\">Content After Embeds</h1>\\n<p>This text comes after the embed.</p>\\n"];
+const html = ["<h1 id=\\"testing-vue-embeds\\">Testing Vue Embeds</h1>\\n<p>This is a counter component:</p>\\n","<h1 id=\\"content-after-embeds\\">Content After Embeds</h1>\\n<p>This text comes after the embed.</p>\\n"];
 
 defineExpose({ metadata, toc });
 </script>
 
 <template>
   <div>
-  <div v-html="htmlParts[0]"></div>
-  <Embed0 />
-  <div v-html="htmlParts[1]"></div>
-</div>
+    <div style="display: contents" v-html="html[0]"></div>
+    <Embed0 />
+    <div style="display: contents" v-html="html[1]"></div>
+  </div>
 </template>"
 `;

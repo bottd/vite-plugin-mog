@@ -1,4 +1,4 @@
-import type { MogParseResult } from '../types/parser.js';
+import type { MogParseResult } from '@parser';
 import { lines } from './helpers.js';
 
 export function generateMetadata({ metadata, toc }: MogParseResult): string {

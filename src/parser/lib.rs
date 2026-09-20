@@ -7,8 +7,8 @@ mod utils;
 
 pub use embed::EmbedParseError;
 pub use metadata::extract_metadata;
-pub use render::{Rendered, render};
-pub use types::{EmbedComponent, OutputMode, TocEntry};
+pub use render::{Rendered, render, segments_html};
+pub use types::{ContainerTag, EmbedComponent, OutputMode, Segment, TocEntry};
 
 use arborium::theme::builtin;
 use napi::bindgen_prelude::*;
@@ -21,7 +21,8 @@ const PARSER_STACK_SIZE: usize = 32 * 1024 * 1024;
 #[napi(object)]
 pub struct MogParseResult {
     pub metadata: Map<String, Value>,
-    pub html_parts: Vec<String>,
+    /// The document body in order — see [`Segment`].
+    pub segments: Vec<Segment>,
     pub toc: Vec<TocEntry>,
     pub embed_components: Vec<EmbedComponent>,
     pub embed_css: String,
@@ -34,7 +35,7 @@ pub struct MogParseResult {
 /// level, and ordinary deep input must not abort the host process.
 pub fn parse_on_bounded_stack(
     content: &str,
-    mode: Option<&str>,
+    mode: Option<OutputMode>,
 ) -> std::result::Result<MogParseResult, String> {
     std::thread::scope(|scope| {
         let handle = std::thread::Builder::new()
@@ -51,7 +52,7 @@ pub fn parse_on_bounded_stack(
 
 pub struct ParseTask {
     content: String,
-    mode: Option<String>,
+    mode: Option<OutputMode>,
 }
 
 impl Task for ParseTask {
@@ -59,7 +60,7 @@ impl Task for ParseTask {
     type JsValue = MogParseResult;
 
     fn compute(&mut self) -> Result<Self::Output> {
-        parse_on_bounded_stack(&self.content, self.mode.as_deref()).map_err(Error::from_reason)
+        parse_on_bounded_stack(&self.content, self.mode).map_err(Error::from_reason)
     }
 
     fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
@@ -69,29 +70,28 @@ impl Task for ParseTask {
 
 /// Runs on the libuv pool rather than the JS thread — Vite transforms modules
 /// concurrently, and a blocking parse would serialise all of them.
-#[napi(ts_return_type = "Promise<MogParseResult>")]
-pub fn parse_mog(content: String, mode: Option<String>) -> AsyncTask<ParseTask> {
+///
+/// The mode is typed by name, so a caller writes `'svelte'` and needs no enum import.
+#[napi(
+    ts_args_type = "content: string, mode?: `${OutputMode}` | null",
+    ts_return_type = "Promise<MogParseResult>"
+)]
+pub fn parse_mog(content: String, mode: Option<OutputMode>) -> AsyncTask<ParseTask> {
     AsyncTask::new(ParseTask { content, mode })
 }
 
 fn parse_mog_inner(
     content: &str,
-    mode: Option<&str>,
+    output_mode: Option<OutputMode>,
 ) -> std::result::Result<MogParseResult, String> {
     let document = mog_parser::parse(content);
-    let output_mode = mode
-        .map(|mode| {
-            mode.parse()
-                .map_err(|()| format!("Invalid output mode: {mode}"))
-        })
-        .transpose()?;
 
     // Metadata extraction warns too, so it has to run inside the capture —
     // stderr is invisible in a Vite worker.
     let ((rendered, metadata), diagnostics) = diagnostics::capture(|| {
         (
             render(&document, output_mode),
-            extract_metadata(document.meta.as_deref()),
+            extract_metadata(document.attributes.as_deref()),
         )
     });
     let rendered =
@@ -99,7 +99,7 @@ fn parse_mog_inner(
 
     Ok(MogParseResult {
         metadata,
-        html_parts: rendered.parts,
+        segments: rendered.segments,
         toc: rendered.toc,
         embed_components: rendered.embeds,
         embed_css: rendered.css,
@@ -144,13 +144,5 @@ mod tests {
         );
         assert!(get_theme_css("definitely-not-a-theme".into()).is_empty());
         assert!(theme_names().contains(&"GitHub Dark".to_string()));
-    }
-
-    #[test]
-    fn unknown_output_modes_are_rejected() {
-        let Err(error) = parse_mog_inner("# Test", Some("metadata")) else {
-            panic!("invalid mode was accepted");
-        };
-        assert_eq!(error, "Invalid output mode: metadata");
     }
 }

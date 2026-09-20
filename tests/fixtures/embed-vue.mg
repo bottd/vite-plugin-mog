@@ -1,4 +1,4 @@
-``meta:
+``attr:
 title "Embed Vue Test"
 ``
 

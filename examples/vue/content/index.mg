@@ -1,4 +1,4 @@
-``meta:
+``attr:
 title "Mog in Vue"
 description "A Mog document compiled to a Vue component"
 ``

@@ -6,9 +6,28 @@ const links = [
   { href: '/embeds.html', label: 'Embeds' },
 ];
 
-export function render(html: string, toc: TocEntry[]) {
+// Metadata is whatever KDL the document declared, so it arrives untyped and has
+// to be narrowed field by field.
+function text(metadata: Record<string, unknown>, key: string): string | undefined {
+  const value = metadata[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+export function render(html: string, toc: TocEntry[], metadata: Record<string, unknown>) {
   const nav = document.getElementById('nav') as HTMLElement;
   const content = document.getElementById('content') as HTMLElement;
+
+  // html mode exports metadata like every other mode, but nothing renders it for
+  // you, so the page puts it in the head itself.
+  const title = text(metadata, 'title');
+  const description = text(metadata, 'description');
+  if (title) document.title = title;
+  if (description) {
+    const meta = document.createElement('meta');
+    meta.name = 'description';
+    meta.content = description;
+    document.head.appendChild(meta);
+  }
 
   nav.innerHTML = `
     <span class="logo">vite-plugin-mog</span>
