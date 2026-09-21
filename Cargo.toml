@@ -18,17 +18,15 @@ path = "src/parser/lib.rs"
 napi = { version = "=3.12.0", features = ["serde-json"] }
 napi-derive = { version = "=3.6.1", features = ["type-def"] }
 serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = "=1.0.151"
+serde_json = { version = "=1.0.151", features = ["preserve_order"] }
 htmlescape = "=0.3.1"
 # INTERIM: the unreleased `attr` branch, where attributes replaced the old
 # `meta`/`data` KDL blocks. No crates.io release carries that yet. A published
 # mog-parser is expected — when it lands, replace this with a version requirement
 # and drop the `meta`/`data` deprecation warning in src/parser/render.rs.
 #
-# Pinned by rev, not `branch = "attr"`, because the release runs
-# `cargo generate-lockfile` (see .releaserc.json) — that discards Cargo.lock, so a
-# branch would re-resolve to whatever its tip was at release time and ship a
-# parser no one tested. Bump this rev deliberately.
+# Pinned by rev, not `branch = "attr"`, so the parser only moves when this line
+# does. Bump this rev deliberately.
 mog-parser = { git = "https://github.com/bottd/mog.git", rev = "57b31bfb390982f1b6ec0cb138727b40697c6f31" }
 arborium = { version = "=2.18.1", features = ["all-languages"] }
 

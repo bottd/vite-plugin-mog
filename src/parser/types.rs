@@ -83,14 +83,32 @@ impl ContainerTag {
     }
 }
 
+impl fmt::Display for ContainerTag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// A `data-*` attribute from a node's `` ``attr: `` block.
+#[napi(object)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DataAttr {
+    /// The full attribute name, `data-` prefix included.
+    pub name: String,
+    /// The raw value — unescaped. A scalar as written, anything else as JSON.
+    pub value: String,
+}
+
 /// One step of the rendered document, in source order.
 ///
 /// A host framework mounts an embed as a component, which a string of HTML
 /// cannot contain. So a container with an embed somewhere inside it is not
 /// written into an `Html` string: it arrives as an `Open`/`Close` pair for the
-/// host to build as a real element, with the embed a true descendant. Every
-/// other container stays inside an `Html` segment. `Open` and `Close` always
-/// balance, and an `Html` segment is never blank.
+/// host to build as a real element, with the embed a true descendant. So does
+/// every item of such a list, embed or not: a host wraps an `Html` segment in an
+/// element of its own, which a `<ul>` or `<ol>` cannot hold. Every other
+/// container stays inside an `Html` segment. `Open` and `Close` always balance,
+/// and an `Html` segment is never blank.
 #[napi(discriminant = "kind", discriminant_case = "lowercase")]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Segment {
@@ -102,9 +120,11 @@ pub enum Segment {
         index: u32,
     },
     /// `classes` is the raw, space-separated class list — unescaped, possibly empty.
+    /// `data` is the node's `` ``attr: `` block, one attribute per key.
     Open {
         tag: ContainerTag,
         classes: String,
+        data: Vec<DataAttr>,
     },
     Close {
         tag: ContainerTag,

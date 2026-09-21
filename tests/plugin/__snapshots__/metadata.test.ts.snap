@@ -1,7 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`Metadata Generator > ?metadata query > should generate correct metadata module for basic.mg via ?metadata query 1`] = `
-"export const metadata = {"author":"Drake Bott","tags":["test","basic"],"title":"Basic Mog"};
+"export const metadata = {"title":"Basic Mog","author":"Drake Bott","tags":["test","basic"]};
 export const toc = [{"level":1,"title":"Main Title","id":"main-title"},{"level":2,"title":"Lists","id":"lists"},{"level":2,"title":"Link","id":"link"}];
 export default { metadata, toc };"
 `;
@@ -19,19 +19,19 @@ export default { metadata, toc };"
 `;
 
 exports[`Metadata Generator > ?metadata query > should generate correct metadata module for images.mg via ?metadata query 1`] = `
-"export const metadata = {"authors":"Drake Bott","title":"Images","version":"1.1.1"};
+"export const metadata = {"title":"Images","authors":"Drake Bott","version":"1.1.1"};
 export const toc = [{"level":1,"title":"Images","id":"images"}];
 export default { metadata, toc };"
 `;
 
 exports[`Metadata Generator > ?metadata query > should generate correct metadata module for links.mg via ?metadata query 1`] = `
-"export const metadata = {"author":"Drake Bott","title":"Link Test"};
+"export const metadata = {"title":"Link Test","author":"Drake Bott"};
 export const toc = [{"level":1,"title":"Link Types","id":"link-types"},{"level":2,"title":"External","id":"external"},{"level":2,"title":"Document References","id":"document-references"},{"level":2,"title":"Heading References","id":"heading-references"},{"level":2,"title":"Footnotes","id":"footnotes"},{"level":2,"title":"Mixed Content","id":"mixed-content"}];
 export default { metadata, toc };"
 `;
 
 exports[`Metadata Generator > mode: metadata > should generate correct metadata module for basic.mg 1`] = `
-"export const metadata = {"author":"Drake Bott","tags":["test","basic"],"title":"Basic Mog"};
+"export const metadata = {"title":"Basic Mog","author":"Drake Bott","tags":["test","basic"]};
 export const toc = [{"level":1,"title":"Main Title","id":"main-title"},{"level":2,"title":"Lists","id":"lists"},{"level":2,"title":"Link","id":"link"}];
 export default { metadata, toc };"
 `;
@@ -49,13 +49,13 @@ export default { metadata, toc };"
 `;
 
 exports[`Metadata Generator > mode: metadata > should generate correct metadata module for images.mg 1`] = `
-"export const metadata = {"authors":"Drake Bott","title":"Images","version":"1.1.1"};
+"export const metadata = {"title":"Images","authors":"Drake Bott","version":"1.1.1"};
 export const toc = [{"level":1,"title":"Images","id":"images"}];
 export default { metadata, toc };"
 `;
 
 exports[`Metadata Generator > mode: metadata > should generate correct metadata module for links.mg 1`] = `
-"export const metadata = {"author":"Drake Bott","title":"Link Test"};
+"export const metadata = {"title":"Link Test","author":"Drake Bott"};
 export const toc = [{"level":1,"title":"Link Types","id":"link-types"},{"level":2,"title":"External","id":"external"},{"level":2,"title":"Document References","id":"document-references"},{"level":2,"title":"Heading References","id":"heading-references"},{"level":2,"title":"Footnotes","id":"footnotes"},{"level":2,"title":"Mixed Content","id":"mixed-content"}];
 export default { metadata, toc };"
 `;

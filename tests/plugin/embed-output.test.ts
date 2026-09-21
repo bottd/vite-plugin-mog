@@ -48,12 +48,17 @@ describe('document modules with component embeds', () => {
     // checked against it as types instead.
     const tag = (name: `${ContainerTag}`) => name as ContainerTag;
     const segments: Segment[] = [
-      { kind: 'open', tag: tag('div'), classes: 'card "quoted"' },
-      { kind: 'open', tag: tag('ol'), classes: '' },
-      { kind: 'open', tag: tag('li'), classes: 'task' },
+      {
+        kind: 'open',
+        tag: tag('div'),
+        classes: 'card "quoted"',
+        data: [{ name: 'data-impact', value: '{"all":{"after":0.524}}' }],
+      },
+      { kind: 'open', tag: tag('ol'), classes: '', data: [] },
+      { kind: 'open', tag: tag('li'), classes: 'task', data: [] },
       { kind: 'html', html: 'one' },
       { kind: 'close', tag: tag('li') },
-      { kind: 'open', tag: tag('li'), classes: '' },
+      { kind: 'open', tag: tag('li'), classes: '', data: [] },
       { kind: 'html', html: 'two' },
       { kind: 'embed', index: 0 },
       { kind: 'close', tag: tag('li') },
@@ -89,15 +94,6 @@ describe('document modules with component embeds', () => {
       ['vue', '<li class="task" v-html="html[0]"></li>'],
     ] as const)('%s gives an html-only item no wrapper', (mode, item) => {
       expect(generate(mode)).toContain(item);
-    });
-
-    it('html mode writes the containers back as tags around the embed code', () => {
-      expect(generate('html')).toContain(
-        JSON.stringify(
-          '<div class="card &quot;quoted&quot;"><ol><li class="task">one</li>' +
-            '<li>two<b>embedded</b></li></ol></div>'
-        )
-      );
     });
   });
 

@@ -1,4 +1,4 @@
-import type { ContainerTag, EmbedComponent, Segment } from '@parser';
+import type { ContainerTag, DataAttr, EmbedComponent, Segment } from '@parser';
 
 /**
  * Joins the lines of a generated module, dropping the ones a caller opted out
@@ -21,103 +21,82 @@ export function serializeJs(value: unknown): string {
     .replace(/\u2029/g, '\\u2029');
 }
 
-const ATTR_ESCAPES: Record<string, string> = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#x27;',
-};
-
-/** Byte for byte what the renderer's `encode_minimal` writes, so a lifted tag reads like an unlifted one. */
-export function escapeAttr(value: string): string {
-  return value.replace(/[&<>"']/g, char => ATTR_ESCAPES[char]);
-}
-
-/**
- * How one generator spells each step of the document. `slot` numbers the HTML
- * strings in order, for a generator that ships them as an array.
- */
+/** How one framework spells the parts of a document that differ between them. */
 export interface SegmentWriter {
   /**
    * HTML with no element of its own, so it needs whatever wrapper the framework
-   * has. A wrapper should be `display: contents`: Svelte and
-   * html mode have none, and the same document should lay out the same in all.
+   * has. A wrapper should be `display: contents`: Svelte has none, and the same
+   * document should lay out the same in every mode.
    */
-  html(html: string, slot: number): string;
-  embed(index: number): string;
-  open(tag: ContainerTag, classes: string): string;
-  close(tag: ContainerTag): string;
+  html(html: string): string;
   /**
    * A lifted element holding nothing but HTML. It can take the string as its
    * own content, which spares a wrapper where one would be invalid or visible
-   * to CSS — an `<li>`'s text, say. Left out, the element is written as
-   * `open`, `html`, `close`.
+   * to CSS — an `<li>`'s text, say. Left out, the element is written as an
+   * opening tag, `html`, and a closing tag. `attrs` comes already spelled.
    */
-  leaf?(tag: ContainerTag, classes: string, html: string, slot: number): string;
+  leaf?(tag: ContainerTag, attrs: string, html: string): string;
+  /** One attribute of a lifted element. */
+  attr(name: string, value: string): string;
+  /** What the framework calls `class`, when that is not it. */
+  className?: string;
 }
 
 /** Writes the segments as lines of a template, indented by nesting. */
 export function writeSegments(segments: Segment[], writer: SegmentWriter): string[] {
   const out: string[] = [];
   let depth = 0;
-  let slot = 0;
   const push = (line: string) => out.push('  '.repeat(depth) + line);
 
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i];
     switch (segment.kind) {
       case 'html':
-        push(writer.html(segment.html, slot++));
+        push(writer.html(segment.html));
         break;
       case 'embed':
-        push(writer.embed(segment.index));
+        push(`<Embed${segment.index} />`);
         break;
       case 'open': {
+        const attrs = [
+          ...(segment.classes ? [[writer.className ?? 'class', segment.classes]] : []),
+          ...segment.data.map(({ name, value }: DataAttr) => [name, value]),
+        ]
+          .map(([name, value]) => ` ${writer.attr(name, value)}`)
+          .join('');
         const [content, end] = [segments[i + 1], segments[i + 2]];
         if (writer.leaf && content?.kind === 'html' && end?.kind === 'close') {
-          push(writer.leaf(segment.tag, segment.classes, content.html, slot++));
+          push(writer.leaf(segment.tag, attrs, content.html));
           i += 2;
           break;
         }
-        push(writer.open(segment.tag, segment.classes));
+        push(`<${segment.tag}${attrs}>`);
         depth++;
         break;
       }
       case 'close':
         depth--;
-        push(writer.close(segment.tag));
+        push(`</${segment.tag}>`);
         break;
     }
   }
   return out;
 }
 
-/** The HTML strings `writeSegments` numbers, in slot order. */
-export function htmlSlots(segments: Segment[]): string[] {
-  return segments.flatMap(segment => (segment.kind === 'html' ? [segment.html] : []));
+/**
+ * The document as one HTML string, when that is all it is — nothing lifted, no
+ * component to mount. `undefined` otherwise, so a caller cannot join its way
+ * past an element it would have had to build.
+ */
+export function soleHtml(segments: Segment[]): string | undefined {
+  return segments.every(segment => segment.kind === 'html')
+    ? segments.map(segment => segment.html).join('')
+    : undefined;
 }
 
-/** The document as one HTML string, with each embed replaced by `embed(index)`. */
-export function joinSegments(segments: Segment[], embed: (index: number) => string): string {
-  return segments
-    .map(segment => {
-      switch (segment.kind) {
-        case 'html':
-          return segment.html;
-        case 'embed':
-          return embed(segment.index);
-        case 'open':
-          return `<${segment.tag}${classAttr(segment.classes)}>`;
-        case 'close':
-          return `</${segment.tag}>`;
-      }
-    })
-    .join('');
-}
-
-export function classAttr(classes: string): string {
-  return classes ? ` class="${escapeAttr(classes)}"` : '';
+/** `name={"…"}`, for a template that takes expressions. */
+export function attrExpr(name: string, value: string): string {
+  return `${name}={${JSON.stringify(value)}}`;
 }
 
 export function addEmbedImports(embedComponents: EmbedComponent[], filePath?: string): string[] {

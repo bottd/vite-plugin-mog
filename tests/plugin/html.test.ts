@@ -32,6 +32,17 @@ describe('HTML Generator', () => {
     });
   });
 
+  it('shows each occurrence once, however many times the file parses', async () => {
+    const fixturePath = join(fixturesDir, 'diagnostics-repeated.mg');
+    const warn = vi.fn();
+    const load = plugin.load as (this: { warn: typeof warn }, id: string) => Promise<unknown>;
+
+    await load.call({ warn }, fixturePath);
+    await load.call({ warn }, `${fixturePath}?metadata`);
+
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
   it.each(fixtures)('generates correct output for %s', async fixture => {
     const fixturePath = join(fixturesDir, fixture);
     const code = await loadCode(plugin, fixturePath);

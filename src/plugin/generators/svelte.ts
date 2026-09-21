@@ -2,6 +2,7 @@ import type { MogParseResult } from '@parser';
 import {
   addDocumentCssImport,
   addEmbedImports,
+  attrExpr,
   lines,
   serializeJs,
   writeSegments,
@@ -13,12 +14,10 @@ export function generateSvelte(
   filePath?: string
 ): string {
   const hasImports = !!(css || embedCss || embedComponents.length);
-  // Classes go through an expression: a `{` in a quoted attribute would open one.
+  // Values go through an expression: a `{` in a quoted attribute would open one.
   const body = writeSegments(segments, {
     html: html => `{@html ${JSON.stringify(html)}}`,
-    embed: i => `<Embed${i} />`,
-    open: (tag, classes) => (classes ? `<${tag} class={${JSON.stringify(classes)}}>` : `<${tag}>`),
-    close: tag => `</${tag}>`,
+    attr: attrExpr,
   });
 
   return lines(

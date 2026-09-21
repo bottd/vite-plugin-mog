@@ -10,6 +10,7 @@ export const componentsDir = join(fixturesDir, 'components');
 // exists to exercise warnings rather than clean output.
 const notRenderable = new Set([
   'diagnostics.mg',
+  'diagnostics-repeated.mg',
   'embed.mg',
   'embed-html.mg',
   'embed-react.mg',

@@ -2,34 +2,39 @@ import type { MogParseResult } from '@parser';
 import {
   addDocumentCssImport,
   addEmbedImports,
-  classAttr,
-  htmlSlots,
-  joinSegments,
   lines,
   serializeJs,
+  soleHtml,
   writeSegments,
 } from './helpers.js';
+
+const escapeAttr = (value: string) =>
+  value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const quotedAttr = (name: string, value: string) => `${name}="${escapeAttr(value)}"`;
 
 export function generateVue(
   { segments, metadata, toc, embedComponents = [], embedCss = '' }: MogParseResult,
   css: string,
   filePath?: string
 ): string {
-  const hasEmbeds = embedComponents.length > 0;
-  const template = hasEmbeds
-    ? [
-        '<div>',
-        ...writeSegments(segments, {
-          html: (_html, slot) => `<div style="display: contents" v-html="html[${slot}]"></div>`,
-          embed: i => `<Embed${i} />`,
-          open: (tag, classes) => `<${tag}${classAttr(classes)}>`,
-          close: tag => `</${tag}>`,
-          leaf: (tag, classes, _html, slot) =>
-            `<${tag}${classAttr(classes)} v-html="html[${slot}]"></${tag}>`,
-        }).map(line => `  ${line}`),
-        '</div>',
-      ]
-    : ['<div v-html="html"></div>'];
+  // The strings ship as one array the template indexes, rather than being
+  // escaped into `v-html` attributes one by one.
+  const html: string[] = [];
+  const slot = (content: string) => `v-html="html[${html.push(content) - 1}]"`;
+  // A document that is a single string needs no wrapper: the root can hold it.
+  const sole = soleHtml(segments);
+  const template =
+    sole !== undefined
+      ? [`<div ${slot(sole)}></div>`]
+      : [
+          '<div>',
+          ...writeSegments(segments, {
+            html: content => `<div style="display: contents" ${slot(content)}></div>`,
+            leaf: (tag, attrs, content) => `<${tag}${attrs} ${slot(content)}></${tag}>`,
+            attr: quotedAttr,
+          }).map(line => `  ${line}`),
+          '</div>',
+        ];
 
   return lines(
     '<script lang="ts">',
@@ -40,7 +45,7 @@ export function generateVue(
     css ? 'import "virtual:mog-arborium.css";' : null,
     addDocumentCssImport(embedCss, filePath),
     addEmbedImports(embedComponents, filePath),
-    `const html = ${JSON.stringify(hasEmbeds ? htmlSlots(segments) : joinSegments(segments, () => ''))};`,
+    `const html = ${JSON.stringify(html)};`,
     '',
     'defineExpose({ metadata, toc });',
     '</script>',

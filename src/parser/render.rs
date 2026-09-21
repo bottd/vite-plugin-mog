@@ -1,5 +1,5 @@
-use crate::embed::{CSS, EmbedParseError, Embedded, embed};
-use crate::types::{ContainerTag, EmbedComponent, OutputMode, Segment, TocEntry};
+use crate::embed::{EmbedParseError, Embedded, embed};
+use crate::types::{ContainerTag, DataAttr, EmbedComponent, OutputMode, Segment, TocEntry};
 use crate::utils::{UrlKind, has_unsafe_scheme, into_slug};
 use arborium::advanced::{Span, spans_to_html};
 use arborium::{Highlighter, HtmlFormat};
@@ -24,36 +24,42 @@ pub fn segments_html(segments: &[Segment]) -> String {
         match segment {
             Segment::Html { html } => out.push_str(html),
             Segment::Embed { .. } => {}
-            Segment::Open { tag, classes } => out.push_str(&open_tag(*tag, classes)),
-            Segment::Close { tag } => out.push_str(&close_tag(*tag)),
+            Segment::Open { tag, classes, data } => write_open(&mut out, *tag, classes, data),
+            Segment::Close { tag } => write_close(&mut out, *tag),
         }
     }
     out
 }
 
 pub fn render(document: &Document, mode: Option<OutputMode>) -> Result<Rendered, EmbedParseError> {
+    warn_renamed_blocks(&document.body);
     let mut renderer = Renderer::new(mode);
-    // Without a mode no embed mounts, so nothing needs lifting.
-    if mode.is_some() {
-        mark_embed_ancestors(&document.body, &mut renderer.lifted);
-    }
-    if document
-        .body
-        .first()
-        .is_some_and(|node| verbatim_lang(node) == Some("meta"))
-    {
-        crate::diagnostics::warn(
-            "``meta: is no longer front matter — rename it to ``attr:. It is \
-             rendering as a code block and contributes no metadata.",
-        );
-    }
     renderer.blocks(&document.body)?;
     Ok(renderer.finish())
 }
 
+/// What a container holds while it renders. Whether it is lifted (see
+/// [`Segment`]) is only known once it closes, so every container is kept as a
+/// tree and `finish` writes the embed-free ones back into the HTML around them.
+enum Piece {
+    Html(String),
+    Embed(u32),
+    Container(Container),
+}
+
+struct Container {
+    tag: ContainerTag,
+    classes: String,
+    data: Vec<DataAttr>,
+    pieces: Vec<Piece>,
+    holds_embed: bool,
+}
+
 struct Renderer {
-    segments: Vec<Segment>,
-    /// The `Html` segment being written; `flush` closes it.
+    root: Vec<Piece>,
+    /// The containers around the cursor, outermost first.
+    open: Vec<Container>,
+    /// The HTML being written; `flush` hands it to the innermost container.
     out: String,
     embeds: Vec<EmbedComponent>,
     css: Vec<String>,
@@ -67,17 +73,13 @@ struct Renderer {
     /// Counts every embed declaration the renderer visits (incl. CSS, `None`
     /// mode, and failing ones), giving errors their "embed #N" number.
     embed_decls: usize,
-    /// How many lists and free blocks enclose the cursor.
-    container_depth: usize,
-    /// The containers with a component embed somewhere inside — see [`Segment`].
-    /// Keyed by address: the document outlives the renderer and is never moved.
-    lifted: HashSet<*const Node>,
 }
 
 impl Renderer {
     fn new(mode: Option<OutputMode>) -> Self {
         Self {
-            segments: Vec::new(),
+            root: Vec::new(),
+            open: Vec::new(),
             out: String::new(),
             embeds: Vec::new(),
             css: Vec::new(),
@@ -87,8 +89,6 @@ impl Renderer {
             mode,
             highlighter: Highlighter::new(),
             embed_decls: 0,
-            container_depth: 0,
-            lifted: HashSet::new(),
         }
     }
 
@@ -105,8 +105,14 @@ impl Renderer {
             self.out.push_str("</ol></aside>\n");
         }
         self.flush();
+        let mut segments = Vec::new();
+        emit(self.root, false, &mut segments);
+        // Every block ends in a newline, so whitespace is all that sits between
+        // two lifted tags — and a host would wrap it in an empty element.
+        segments
+            .retain(|segment| !matches!(segment, Segment::Html { html } if html.trim().is_empty()));
         Rendered {
-            segments: self.segments,
+            segments,
             embeds: self.embeds,
             css: self.css.join("\n"),
             toc: self.toc,
@@ -118,38 +124,50 @@ impl Renderer {
         self.out.push('\n');
     }
 
+    fn pieces(&mut self) -> &mut Vec<Piece> {
+        match self.open.last_mut() {
+            Some(container) => &mut container.pieces,
+            None => &mut self.root,
+        }
+    }
+
     fn flush(&mut self) {
-        let html = std::mem::take(&mut self.out);
-        // Every block ends in a newline, so whitespace is all that sits between
-        // two lifted tags — and a host would wrap it in an empty element.
-        if !html.trim().is_empty() {
-            self.segments.push(Segment::Html { html });
+        if !self.out.is_empty() {
+            let html = std::mem::take(&mut self.out);
+            self.pieces().push(Piece::Html(html));
         }
     }
 
-    fn lifts(&self, node: &Node) -> bool {
-        self.lifted.contains(&std::ptr::from_ref(node))
+    /// Only a component embed lifts anything, and only a framework mode mounts
+    /// one. Without that, a container is just its tags, written in place.
+    fn lifts(&self) -> bool {
+        self.mode.is_some_and(|mode| mode != OutputMode::html)
     }
 
-    fn open(&mut self, lifted: bool, tag: ContainerTag, classes: &str) {
-        if lifted {
-            self.flush();
-            self.segments.push(Segment::Open {
-                tag,
-                classes: classes.to_string(),
-            });
-        } else {
-            self.out.push_str(&open_tag(tag, classes));
+    fn open(&mut self, tag: ContainerTag, classes: String, data: Vec<DataAttr>) {
+        if !self.lifts() {
+            write_open(&mut self.out, tag, &classes, &data);
+            return;
         }
+        self.flush();
+        self.open.push(Container {
+            tag,
+            classes,
+            data,
+            pieces: Vec::new(),
+            holds_embed: false,
+        });
     }
 
-    fn close(&mut self, lifted: bool, tag: ContainerTag) {
-        if lifted {
-            self.flush();
-            self.segments.push(Segment::Close { tag });
-        } else {
-            self.out.push_str(&close_tag(tag));
+    fn close(&mut self, tag: ContainerTag) {
+        if !self.lifts() {
+            write_close(&mut self.out, tag);
+            return;
         }
+        self.flush();
+        let container = self.open.pop().expect("open container");
+        debug_assert_eq!(container.tag, tag);
+        self.pieces().push(Piece::Container(container));
     }
 
     fn blocks(&mut self, nodes: &[Node]) -> Result<(), EmbedParseError> {
@@ -200,7 +218,7 @@ impl Renderer {
                 let (classes, status) = marker_markup(node);
                 self.push_block(&format!(
                     "<h{level}{id_attr}{}>{status}{}{title_html}</h{level}>",
-                    classes_attr(&classes),
+                    attrs_html(&classes, &data_attrs(node)),
                     gap(status, &title_html)
                 ));
                 if !id.is_empty() {
@@ -215,13 +233,10 @@ impl Renderer {
             // A free marker carries no meaning of its own: it is a grouping
             // block, so it renders as one and whatever it captured renders in it.
             NodeKind::Marker(marker) if marker.kind == MarkerKind::Free => {
-                let lifted = self.lifts(node);
-                self.open(lifted, ContainerTag::div, &classes(node));
+                self.open(ContainerTag::div, classes(node), data_attrs(node));
                 self.out.push('\n');
-                self.container_depth += 1;
                 self.blocks(&node.children)?;
-                self.container_depth -= 1;
-                self.close(lifted, ContainerTag::div);
+                self.close(ContainerTag::div);
                 self.out.push('\n');
             }
             NodeKind::Paragraph => self.paragraph(&node.children, &class_attr(node)),
@@ -245,11 +260,6 @@ impl Renderer {
 
     fn list(&mut self, items: &[Node]) -> Result<(), EmbedParseError> {
         let mut stack: Vec<(MarkerKind, usize)> = Vec::new();
-        // One decision for the whole run: a lifted `<ul>` can hold nothing but
-        // real `<li>` elements, so an embed in one item lifts its siblings too.
-        let lifted = items.iter().any(|item| self.lifts(item));
-        self.container_depth += 1;
-
         for node in items {
             let Some((kind, depth)) = list_kind(node) else {
                 continue;
@@ -263,40 +273,34 @@ impl Renderer {
                     || (level == depth && (open != kind || kind == MarkerKind::Blockquote))
             }) {
                 let (open, _) = stack.pop().expect("open container");
-                self.close_item(lifted, open);
-                self.close(lifted, container_tag(open));
+                self.close_level(open);
             }
 
             let (classes, status) = marker_markup(node);
-            // A marker decorates the element it produces: a list marker its
-            // `<li>`, a `>` the blockquote it always opens.
-            let (container_classes, item_classes) = match kind {
-                MarkerKind::Blockquote => (classes.as_str(), ""),
-                _ => ("", classes.as_str()),
-            };
-            match stack.last() {
-                Some(&(_, level)) if level == depth => self.close_item(lifted, kind),
-                _ => {
-                    self.open(lifted, container_tag(kind), container_classes);
-                    stack.push((kind, depth));
-                }
-            }
-
+            let data = data_attrs(node);
             let (inline, content) = split_content(node);
             let html = self.inline(inline);
             let gap = gap(status, &html);
+            // A marker decorates the element it produces: a `>` the blockquote
+            // it always opens (the loop above closed any sibling quote), a list
+            // marker its `<li>`.
             match kind {
                 MarkerKind::Blockquote => {
+                    self.open(ContainerTag::blockquote, classes, data);
+                    stack.push((kind, depth));
                     if !html.trim().is_empty() {
-                        let _ = write!(
-                            self.out,
-                            "<p{}>{status}{gap}{html}</p>",
-                            classes_attr(item_classes)
-                        );
+                        let _ = write!(self.out, "<p>{status}{gap}{html}</p>");
                     }
                 }
                 _ => {
-                    self.open(lifted, ContainerTag::li, item_classes);
+                    match stack.last() {
+                        Some(&(_, level)) if level == depth => self.close(ContainerTag::li),
+                        _ => {
+                            self.open(container_tag(kind), String::new(), Vec::new());
+                            stack.push((kind, depth));
+                        }
+                    }
+                    self.open(ContainerTag::li, classes, data);
                     let _ = write!(self.out, "{status}{gap}{html}");
                 }
             }
@@ -304,18 +308,18 @@ impl Renderer {
         }
 
         while let Some((open, _)) = stack.pop() {
-            self.close_item(lifted, open);
-            self.close(lifted, container_tag(open));
+            self.close_level(open);
         }
         self.out.push('\n');
-        self.container_depth -= 1;
         Ok(())
     }
 
-    fn close_item(&mut self, lifted: bool, kind: MarkerKind) {
+    /// Closes one level of a list run: its open item, then the container.
+    fn close_level(&mut self, kind: MarkerKind) {
         if kind != MarkerKind::Blockquote {
-            self.close(lifted, ContainerTag::li);
+            self.close(ContainerTag::li);
         }
+        self.close(container_tag(kind));
     }
 
     /// Header rows emit `<th>`, data rows `<td>`. Mog allows a header row
@@ -347,11 +351,12 @@ impl Renderer {
         let args = string_args(node);
         let content = raw_text(node);
 
-        if args.first().is_some_and(|arg| *arg == EMBED) {
+        if is_embed(node) {
             let index = self.embed_decls;
             self.embed_decls += 1;
             match embed(args.get(1).copied(), &content, self.mode, index)? {
                 Some(Embedded::Css(css)) => self.css.push(css),
+                Some(Embedded::Markup(html)) => self.push_block(&html),
                 Some(Embedded::Component { mode, code }) => self.push_embed(mode, code),
                 None => {}
             }
@@ -359,7 +364,6 @@ impl Renderer {
         }
 
         let lang = args.first().copied().unwrap_or("text");
-        self.warn_if_renamed(lang);
         let html = match self.highlighter.highlight_spans(lang, &content) {
             Ok(spans) => format!(
                 r#"<pre class="arborium lang-{}"><code>{}</code></pre>"#,
@@ -375,27 +379,17 @@ impl Renderer {
         Ok(())
     }
 
-    /// `attr` replaced ``meta: and ``data: upstream. A document written for the
-    /// older parser still parses, so nothing fails — the block just renders as
-    /// code and yields nothing. Only naming it tells the author why.
-    ///
-    /// Both are also plausible languages for a real code sample, which renaming
-    /// would silently delete from the page, so each warns only where the old
-    /// parser read it: `meta` opening the document (see `render`), `data` at
-    /// the root. Remove with the `mog-parser` git pin (see Cargo.toml).
-    fn warn_if_renamed(&self, lang: &str) {
-        if lang == "data" && self.container_depth == 0 {
-            crate::diagnostics::warn(
-                "a root-level ``data: block no longer sets attributes. If it was \
-                 meant to, rename it to ``attr:; a code sample needs no change.",
-            );
-        }
-    }
-
     fn push_embed(&mut self, mode: OutputMode, code: String) {
         let index = self.embeds.len() as u32;
         self.flush();
-        self.segments.push(Segment::Embed { index });
+        self.pieces().push(Piece::Embed(index));
+        // Marking always covers the whole stack, so a marked container's
+        // ancestors are marked already.
+        for container in self.open.iter_mut().rev() {
+            if std::mem::replace(&mut container.holds_embed, true) {
+                break;
+            }
+        }
         self.embeds.push(EmbedComponent { index, mode, code });
     }
 
@@ -510,9 +504,10 @@ impl Renderer {
                 let alt = alt.unwrap_or_default();
                 let _ = write!(
                     out,
-                    r#"<img src="{}" alt="{}" />"#,
+                    r#"<img src="{}" alt="{}"{} />"#,
                     encode_minimal(&relative(&href)),
-                    encode_minimal(&alt)
+                    encode_minimal(&alt),
+                    link_data(node)
                 );
                 return;
             }
@@ -528,8 +523,9 @@ impl Renderer {
         };
         let _ = write!(
             out,
-            r#"<a href="{}"{external}>{display}</a>"#,
-            encode_minimal(&href)
+            r#"<a href="{}"{external}{}>{display}</a>"#,
+            encode_minimal(&href),
+            link_data(node)
         );
     }
 
@@ -589,45 +585,89 @@ fn container_tag(kind: MarkerKind) -> ContainerTag {
     }
 }
 
-/// Records every container between the root and a component embed, returning
-/// whether `nodes` hold one. It walks the tree exactly as `blocks` does, so only
-/// a verbatim that will really reach `Renderer::verbatim` counts — inline code
-/// spelling `embed:` does not. CSS embeds only collect a stylesheet, so they
-/// leave the markup whole.
-fn mark_embed_ancestors(nodes: &[Node], lifted: &mut HashSet<*const Node>) -> bool {
-    let mut any = false;
-    for node in nodes {
-        let holds = match &node.kind {
-            NodeKind::Delimiter(Delimiter::Verbatim) => {
-                matches!(string_args(node)[..], [EMBED, lang, ..] if lang != CSS)
+/// Flattens the tree into segments, lifting what has to be: a container that
+/// holds an embed, and every item of a lifted list — a host wraps loose HTML in
+/// an element, which a `<ul>` or `<ol>` cannot hold. Anything else is written
+/// back as tags into the HTML around it.
+fn emit(pieces: Vec<Piece>, lift_items: bool, segments: &mut Vec<Segment>) {
+    for piece in pieces {
+        match piece {
+            Piece::Html(html) => html_tail(segments).push_str(&html),
+            Piece::Embed(index) => segments.push(Segment::Embed { index }),
+            Piece::Container(container) => {
+                let Container {
+                    tag,
+                    classes,
+                    data,
+                    pieces,
+                    holds_embed,
+                } = container;
+                if holds_embed || (lift_items && tag == ContainerTag::li) {
+                    let is_list = matches!(tag, ContainerTag::ul | ContainerTag::ol);
+                    segments.push(Segment::Open { tag, classes, data });
+                    emit(pieces, is_list, segments);
+                    segments.push(Segment::Close { tag });
+                } else {
+                    write_open(html_tail(segments), tag, &classes, &data);
+                    emit(pieces, false, segments);
+                    write_close(html_tail(segments), tag);
+                }
             }
-            NodeKind::Marker(marker) if marker.kind == MarkerKind::Free => {
-                mark_embed_ancestors(&node.children, lifted)
-            }
-            NodeKind::Marker(_) => mark_embed_ancestors(split_content(node).1, lifted),
-            _ => false,
-        };
-        // A heading is no container, but marking it is harmless: nothing asks.
-        if holds {
-            lifted.insert(std::ptr::from_ref(node));
         }
-        any |= holds;
     }
-    any
+}
+
+/// The HTML being written. Adjacent HTML is one segment: a host wraps each in
+/// an element of its own.
+fn html_tail(segments: &mut Vec<Segment>) -> &mut String {
+    if !matches!(segments.last(), Some(Segment::Html { .. })) {
+        segments.push(Segment::Html {
+            html: String::new(),
+        });
+    }
+    match segments.last_mut() {
+        Some(Segment::Html { html }) => html,
+        _ => unreachable!("just pushed"),
+    }
+}
+
+fn write_open(out: &mut String, tag: ContainerTag, classes: &str, data: &[DataAttr]) {
+    let _ = write!(out, "<{tag}{}>", attrs_html(classes, data));
+}
+
+fn write_close(out: &mut String, tag: ContainerTag) {
+    let _ = write!(out, "</{tag}>");
+}
+
+/// `attr` replaced ``meta: and ``data:. Either still parses, as a code block
+/// that yields nothing, so only a warning tells the author why. Both are also
+/// plausible languages for a real sample, which renaming would delete from the
+/// page — so each warns only where it used to be read: `meta` opening the
+/// document, `data` at the root. Remove with the git pin (see Cargo.toml).
+fn warn_renamed_blocks(body: &[Node]) {
+    if body.first().and_then(verbatim_lang) == Some("meta") {
+        crate::diagnostics::warn(
+            "``meta: is no longer front matter — rename it to ``attr:. It is \
+             rendering as a code block and contributes no metadata.",
+        );
+    }
+    if body.iter().any(|node| verbatim_lang(node) == Some("data")) {
+        crate::diagnostics::warn(
+            "a root-level ``data: block no longer sets attributes. If it was \
+             meant to, rename it to ``attr:. If it is a code sample, name its \
+             language (``kdl:, ``text:) and this warning goes away.",
+        );
+    }
+}
+
+fn is_embed(node: &Node) -> bool {
+    verbatim_lang(node) == Some(EMBED)
 }
 
 fn verbatim_lang(node: &Node) -> Option<&str> {
     is_delimiter(node, Delimiter::Verbatim)
-        .then(|| string_args(node).first().copied())
+        .then(|| bare_args(node).next())
         .flatten()
-}
-
-fn open_tag(tag: ContainerTag, classes: &str) -> String {
-    format!("<{}{}>", tag.as_str(), classes_attr(classes))
-}
-
-fn close_tag(tag: ContainerTag) -> String {
-    format!("</{}>", tag.as_str())
 }
 
 fn list_kind(node: &Node) -> Option<(MarkerKind, usize)> {
@@ -667,13 +707,16 @@ fn split_content(node: &Node) -> (&[Node], &[Node]) {
     {
         return (&first.children, rest);
     }
-    let block_child = |node: &Node| match &node.kind {
+    // The tree spells a one-line embed block and inline code alike. Only the
+    // block can open the marker: text beside it on the marker's line comes
+    // first, and in block form that text is a paragraph, unwrapped above.
+    let block_child = |(index, node): (usize, &Node)| match &node.kind {
         NodeKind::Delimiter(Delimiter::Verbatim) => {
-            node.children.len() > 1 || verbatim_lang(node) == Some(EMBED)
+            node.children.len() > 1 || (index == 0 && is_embed(node))
         }
         _ => is_block(node),
     };
-    match nodes.iter().position(block_child) {
+    match nodes.iter().enumerate().position(block_child) {
         Some(split) => nodes.split_at(split),
         None => (nodes, &[]),
     }
@@ -682,6 +725,10 @@ fn split_content(node: &Node) -> (&[Node], &[Node]) {
 /// The bare (unnamed, string-valued) attributes of a node, in source order:
 /// `##red:underline:` → `["red", "underline"]`.
 fn string_args(node: &Node) -> Vec<&str> {
+    bare_args(node).collect()
+}
+
+fn bare_args(node: &Node) -> impl Iterator<Item = &str> {
     node.attributes
         .iter()
         // A chain's entries, not an ``attr: block's children: the two are
@@ -692,13 +739,68 @@ fn string_args(node: &Node) -> Vec<&str> {
             Value::String(string) => Some(string.as_str()),
             _ => None,
         })
-        .collect()
 }
 
 /// Bare attributes become classes. Links and verbatim blocks never come through
 /// here — theirs name a protocol or a language, and both render their own tag.
 fn class_attr(node: &Node) -> String {
-    classes_attr(&classes(node))
+    attrs_html(&classes(node), &data_attrs(node))
+}
+
+/// A link's `` ``attr: `` block sits in its `((name))`, the one part of a link
+/// that holds markup, and describes the `<a>` or `<img>` the link becomes.
+fn link_data(link: &Node) -> String {
+    link.children
+        .iter()
+        .find(|child| is_delimiter(child, Delimiter::LinkName))
+        .map(|name| data_html(&data_attrs(name)))
+        .unwrap_or_default()
+}
+
+/// An element's class list and `data-*` attributes, as they appear in its tag.
+fn attrs_html(classes: &str, data: &[DataAttr]) -> String {
+    classes_attr(classes) + &data_html(data)
+}
+
+/// A node's `` ``attr: `` block as `data-*` attributes, one per top-level key:
+/// a scalar as written, anything nested as JSON. The block's KDL arrives as the
+/// attributes' children (see `metadata`), and merges the same way.
+fn data_attrs(node: &Node) -> Vec<DataAttr> {
+    let mut data: Vec<DataAttr> = Vec::new();
+    let keys = node.attributes.iter().flat_map(|owned| &owned.children);
+    for (key, entry) in keys.filter_map(|entry| Some((entry.name.as_deref()?, entry))) {
+        // The name lands in a tag unquoted — and, lifted, in JSX, which is the
+        // stricter of the two: no `.`, which HTML alone would take.
+        let valid = !key.is_empty()
+            && key
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'));
+        // HTML attribute names ignore case, so that is how a repeat is judged.
+        let name = format!("data-{}", key.to_ascii_lowercase());
+        if !valid {
+            crate::diagnostics::warn(format!(
+                "attr key \"{key}\" is not a valid data attribute name and was dropped"
+            ));
+        } else if data.iter().any(|attr| attr.name == name) {
+            crate::diagnostics::warn(format!(
+                "attr key \"{key}\" is set more than once — the first value was kept"
+            ));
+        } else {
+            let value = match crate::metadata::into_json(&entry.value) {
+                serde_json::Value::String(string) => string,
+                other => other.to_string(),
+            };
+            data.push(DataAttr { name, value });
+        }
+    }
+    data
+}
+
+fn data_html(data: &[DataAttr]) -> String {
+    data.iter().fold(String::new(), |mut out, attr| {
+        let _ = write!(out, r#" {}="{}""#, attr.name, encode_minimal(&attr.value));
+        out
+    })
 }
 
 fn classes(node: &Node) -> String {
@@ -903,16 +1005,18 @@ mod tests {
 
     /// The segments' structure with the HTML elided: `<div.card> html embed0 </div>`.
     fn shape(source: &str, mode: OutputMode) -> String {
-        segments(source, Some(mode))
+        shape_of(&segments(source, Some(mode)))
+    }
+
+    fn shape_of(segments: &[Segment]) -> String {
+        segments
             .iter()
             .map(|segment| match segment {
                 Segment::Html { .. } => "html".to_string(),
                 Segment::Embed { index } => format!("embed{index}"),
-                Segment::Open { tag, classes } if classes.is_empty() => {
-                    format!("<{}>", tag.as_str())
-                }
-                Segment::Open { tag, classes } => format!("<{}.{classes}>", tag.as_str()),
-                Segment::Close { tag } => format!("</{}>", tag.as_str()),
+                Segment::Open { tag, classes, .. } if classes.is_empty() => format!("<{tag}>"),
+                Segment::Open { tag, classes, .. } => format!("<{tag}.{classes}>"),
+                Segment::Close { tag } => format!("</{tag}>"),
             })
             .collect::<Vec<_>>()
             .join(" ")
@@ -1062,6 +1166,77 @@ mod tests {
     }
 
     #[test]
+    fn a_nested_attribute_block_becomes_data_attributes() {
+        let out = html(
+            "=hero:abrams:\n``attr:\nimpact { all before=0.505 matches=21734 }\nlabel \"A & B\"\n``\n## Abrams\n=\n",
+        );
+        assert!(
+            out.contains(
+                r#"<div class="hero abrams" data-impact="{&quot;all&quot;:{&quot;before&quot;:0.505,&quot;matches&quot;:21734}}" data-label="A &amp; B">"#
+            ),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn a_lifted_container_keeps_its_data_attributes() {
+        let rendered = render(
+            &mog_parser::parse("=card:\n``attr:\nsize 3\n``\n``embed:svelte:\n<X/>\n``\n=\n"),
+            Some(OutputMode::svelte),
+        )
+        .expect("render");
+        assert!(
+            rendered.segments.iter().any(|segment| matches!(
+                segment,
+                Segment::Open { data, .. }
+                    if data == &[DataAttr { name: "data-size".into(), value: "3".into() }]
+            )),
+            "{:?}",
+            rendered.segments
+        );
+    }
+
+    #[test]
+    fn data_attributes_keep_source_order_and_any_key_html_allows() {
+        let (out, warnings) =
+            html_with_warnings("=card:\n``attr:\nzeta 1\nalpha 2\n__proto__ 3\n``\ntext\n=\n");
+        assert!(
+            out.contains(r#"<div class="card" data-zeta="1" data-alpha="2" data-__proto__="3">"#),
+            "{out}"
+        );
+        assert!(warnings.is_empty(), "{warnings:?}");
+    }
+
+    #[test]
+    fn a_data_key_repeated_in_another_case_keeps_its_first_value() {
+        let (out, warnings) = html_with_warnings("=card:\n``attr:\nFoo 1\nfoo 2\n``\ntext\n=\n");
+        assert!(out.contains(r#"<div class="card" data-foo="1">"#), "{out}");
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+    }
+
+    #[test]
+    fn a_data_key_jsx_cannot_spell_is_dropped() {
+        let (out, warnings) = html_with_warnings("=card:\n``attr:\na.b 1\n``\ntext\n=\n");
+        assert!(!out.contains("data-"), "{out}");
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+    }
+
+    #[test]
+    fn a_link_name_carries_the_data_attributes_of_its_link() {
+        let out = html(
+            "[[https://kdl.dev]]((KDL ``attr: kind 1``)) [[!:pic.png]]((alt ``attr: w 3``))\n",
+        );
+        assert!(
+            out.contains(r#"rel="noopener noreferrer" data-kind="1">KDL</a>"#),
+            "{out}"
+        );
+        assert!(
+            out.contains(r#"<img src="./pic.png" alt="alt" data-w="3" />"#),
+            "{out}"
+        );
+    }
+
+    #[test]
     fn attributes_become_classes() {
         let out = html("##red:underline: My Heading\n");
         assert!(out.contains(r#"class="red underline""#), "{out}");
@@ -1124,7 +1299,7 @@ mod tests {
         let source = format!("{EMBED}\n=card:\n{EMBED}=\n\n{EMBED}");
         let rendered = segments(&source, Some(OutputMode::svelte));
         assert_eq!(
-            shape(&source, OutputMode::svelte),
+            shape_of(&rendered),
             "embed0 <div.card> embed1 </div> embed2"
         );
         assert!(
@@ -1144,6 +1319,15 @@ mod tests {
     }
 
     #[test]
+    fn html_mode_inlines_the_embed_and_lifts_nothing() {
+        let source = "=card:\nbefore\n\n``embed:html:\n<b>hi</b>\n``\n\nafter\n=\n";
+        let rendered = segments(source, Some(OutputMode::html));
+        assert_eq!(shape_of(&rendered), "html");
+        let html = segments_html(&rendered);
+        assert!(html.contains("<p>before</p>\n<b>hi</b>"), "{html}");
+    }
+
+    #[test]
     fn a_one_line_embed_opening_an_item_still_mounts() {
         let source = "-\n``embed:svelte:\n<Counter />\n``\n-\n";
         assert_eq!(
@@ -1159,6 +1343,13 @@ mod tests {
     }
 
     #[test]
+    fn inline_code_that_spells_an_embed_in_an_item_stays_code() {
+        let source = "- Use ``embed:vue: <X/>`` for Vue\n";
+        assert_eq!(shape(source, OutputMode::svelte), "html");
+        assert!(html(source).contains("<code>&lt;X/&gt;</code> for Vue"));
+    }
+
+    #[test]
     fn a_task_item_keeps_its_classes_when_lifted() {
         let source = format!("-.:\ndone\n{EMBED}-\n");
         assert_eq!(
@@ -1171,7 +1362,7 @@ mod tests {
     fn lifted_markup_matches_the_unlifted_rendering() {
         let source = format!("=card:\n- one\n-\ntwo\n{EMBED}-\n=\n\n> quote\n");
         let lifted = segments_html(&segments(&source, Some(OutputMode::svelte)));
-        // Only the whitespace between blocks differs: see `flush`.
+        // Only the whitespace between blocks differs: see `finish`.
         assert_eq!(lifted.replace('\n', ""), html(&source).replace('\n', ""));
         assert!(lifted.contains(r#"<div class="card">"#), "{lifted}");
     }

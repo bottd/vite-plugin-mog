@@ -183,10 +183,13 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
 
   type ParseResult = Awaited<ReturnType<typeof parseMog>>;
   const parseCache = new Map<string, Promise<ParseResult>>();
-  // One file parses once per mode (its own and `metadata`), and each parse
-  // reports the same diagnostics. Diagnostics carry no position, so identical
-  // messages are one warning: each distinct message shows once per file revision.
-  const warned = new Map<string, Set<string>>();
+  // A `?metadata` import parses without a mode, so that it works whatever
+  // framework the document's embeds are for — which means a file can parse
+  // twice and report the same diagnostics twice. Diagnostics carry no position,
+  // so what is remembered per file revision is how many times each message has
+  // been shown: a second parse repeats nothing, yet two occurrences that read
+  // the same are still two warnings.
+  const warned = new Map<string, Map<string, number>>();
   const embedModules = new Map<string, { basePath: string; index: number }>();
   // Until configResolved lands, the cwd is the best guess at the project root.
   let root = normalizePath(process.cwd());
@@ -206,19 +209,15 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
     components = refreshed;
   }
 
-  type ParserMode = `${OutputMode}` | undefined;
-
-  function parseCacheKey(filePath: string, parserMode: ParserMode): string {
-    return `${filePath}\0${parserMode ?? ''}`;
-  }
+  type ParserMode = Parameters<typeof parseMog>[1];
 
   function invalidateParse(filePath: string): void {
-    filePath = normalizePath(filePath);
-    const prefix = `${filePath}\0`;
+    const path = normalizePath(filePath);
+    const prefix = `${path}\0`;
     for (const key of parseCache.keys()) {
       if (key.startsWith(prefix)) parseCache.delete(key);
     }
-    warned.delete(filePath);
+    warned.delete(path);
   }
 
   function cachedParse(
@@ -226,26 +225,27 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
     parserMode: ParserMode,
     warn: (message: string) => void
   ): Promise<ParseResult> {
-    // Every key below has to match what `invalidateParse` derives from a path.
-    filePath = normalizePath(filePath);
-    const key = parseCacheKey(filePath, parserMode);
+    const path = normalizePath(filePath);
+    const key = `${path}\0${parserMode ?? ''}`;
     let pending = parseCache.get(key);
     if (!pending) {
-      const fresh: Promise<ParseResult> = readFile(filePath, 'utf-8')
+      const fresh: Promise<ParseResult> = readFile(path, 'utf-8')
         .then(async content => {
           const result = await parseMog(content, parserMode);
-          if (parseCache.get(key) !== fresh) return cachedParse(filePath, parserMode, warn);
-          const seen = warned.get(filePath) ?? new Set<string>();
-          warned.set(filePath, seen);
+          if (parseCache.get(key) !== fresh) return cachedParse(path, parserMode, warn);
+          const shown = warned.get(path) ?? new Map<string, number>();
+          const counts = new Map<string, number>();
           for (const message of result.diagnostics ?? []) {
-            if (seen.has(message)) continue;
-            seen.add(message);
+            const count = (counts.get(message) ?? 0) + 1;
+            counts.set(message, count);
+            if (count <= (shown.get(message) ?? 0)) continue;
+            warned.set(path, shown.set(message, count));
             warn(message);
           }
           return result;
         })
         .catch(error => {
-          if (parseCache.get(key) !== fresh) return cachedParse(filePath, parserMode, warn);
+          if (parseCache.get(key) !== fresh) return cachedParse(path, parserMode, warn);
           throw error;
         });
       pending = fresh;
@@ -373,8 +373,8 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
     async load(id: string) {
       const parse = (filePath: string, parserMode: ParserMode) =>
         cachedParse(filePath, parserMode, message => this.warn({ id: filePath, message }));
-      const watch = (filePath: string) => this.addWatchFile?.(filePath);
       const parserMode = mode === 'metadata' ? undefined : mode;
+      const watch = (filePath: string) => this.addWatchFile?.(filePath);
 
       if (id === RESOLVED_VIRTUAL_CSS_ID) {
         return css;

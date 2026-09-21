@@ -67,12 +67,37 @@ front matter can be split up or appended to further down. A key set twice keeps
 its first value, with a build warning. An `attr` block indented under a marker
 attaches to that node instead of the document.
 
+A node's `attr` block renders as `data-*` attributes on its element, one per
+top-level key in source order: a scalar as written, anything nested as JSON. A
+list marker's block lands on its `<li>`, and a link's goes in its name —
+`[[target]]((name ``attr: k 1``))` — and lands on the `<a>` or `<img>`. Keys
+hold letters, digits, `-` and `_`; they are lowercased, and a repeat keeps its
+first value, with a build warning.
+
+```mog
+=hero:
+``attr:
+impact { all before=0.505 after=0.524 }
+``
+## Abrams
+=
+```
+
+```html
+<div class="hero" data-impact="{&quot;all&quot;:{&quot;before&quot;:0.505,&quot;after&quot;:0.524}}">
+<h2 id="abrams">Abrams</h2>
+</div>
+```
+
+Read it back with `JSON.parse(element.dataset.impact)`.
+
 > **Renamed:** this block was `meta`, and node attributes were `data`. Both
 > spellings now parse as ordinary verbatim blocks — the content renders as a code
 > block and contributes no metadata. The plugin emits a build warning naming the
 > file where the old parser would have read one — a `meta` block opening the
 > document, a `data` block at its top level — so a stale document is loud rather
-> than silent, while a code sample in either language is left alone.
+> than silent. A code sample that trips it goes quiet once it names its real
+> language (`kdl`, `text`).
 >
 > This tracks an unreleased parser, pinned by commit. A published `mog-parser` is
 > on the way; expect further syntax movement until then, and the deprecation
@@ -181,6 +206,14 @@ An embed can sit inside a block or a list item. The plugin builds the
 containers around it — the block's `<div>`, the list and its items — as real
 elements of the component, so the embed is a true child of them and rules like
 `.card > *` reach it the same way in every mode.
+
+The HTML beside an embed is a string, which React and Vue can only mount inside
+an element. There it sits in a `display: contents` wrapper: layout is unchanged,
+but a selector sees the wrapper, so `.card > p` or `p:first-child` will not match
+across it. Svelte needs no wrapper, and an item holding nothing but HTML takes
+the string as its own content in every mode. Releases up to 0.2.1 wrapped a
+document's HTML in a plain block `<div>`; styles that targeted it as a box need
+to move to the content or to your own container.
 
 Point `componentDir` at a directory of components, or map imports yourself:
 

@@ -1,11 +1,13 @@
 use crate::types::OutputMode;
 
-/// The one embed language that is not an output mode.
-pub const CSS: &str = "css";
-
 pub enum Embedded {
     Css(String),
-    Component { mode: OutputMode, code: String },
+    /// An html embed is markup already: it joins the HTML where it stands.
+    Markup(String),
+    Component {
+        mode: OutputMode,
+        code: String,
+    },
 }
 
 /// A `` ``embed:<lang>: `` verbatim block. `css` is collected as document CSS;
@@ -20,7 +22,7 @@ pub fn embed(
         return Err(EmbedParseError::MissingLanguage { index });
     };
 
-    if lang == CSS {
+    if lang == "css" {
         return Ok(Some(Embedded::Css(code.to_string())));
     }
 
@@ -38,6 +40,7 @@ pub fn embed(
             language: lang.to_string(),
             mode,
         }),
+        Some(OutputMode::html) => Ok(Some(Embedded::Markup(code.to_string()))),
         Some(_) => Ok(Some(Embedded::Component {
             mode: embed_mode,
             code: code.to_string(),

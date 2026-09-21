@@ -29,12 +29,16 @@ pub fn extract_metadata(attributes: Option<&Attributes>) -> Map<String, Json> {
 
 fn into_map(attributes: &[Attribute]) -> Map<String, Json> {
     let mut map = Map::new();
+    extend_once(&mut map, attributes);
+    map
+}
+
+fn extend_once(map: &mut Map<String, Json>, attributes: &[Attribute]) {
     for entry in attributes {
         if let Some(name) = &entry.name {
-            insert_once(&mut map, name, &entry.value);
+            insert_once(map, name, &entry.value);
         }
     }
-    map
 }
 
 fn insert_once(map: &mut Map<String, Json>, name: &str, value: &Value) {
@@ -42,17 +46,17 @@ fn insert_once(map: &mut Map<String, Json>, name: &str, value: &Value) {
     // `__proto__` swaps the object's prototype instead of adding a key — every
     // other field disappears with it. Dropping the one key keeps the rest intact.
     if name == "__proto__" {
-        crate::diagnostics::warn("metadata key \"__proto__\" is not supported and was dropped");
+        crate::diagnostics::warn("attr key \"__proto__\" is not supported and was dropped");
     } else if map.contains_key(name) {
         crate::diagnostics::warn(format!(
-            "metadata key \"{name}\" is set more than once — the first value was kept"
+            "attr key \"{name}\" is set more than once — the first value was kept"
         ));
     } else {
         map.insert(name.to_string(), into_json(value));
     }
 }
 
-fn into_json(value: &Value) -> Json {
+pub(crate) fn into_json(value: &Value) -> Json {
     match value {
         Value::Null => Json::Null,
         Value::Bool(bool) => json!(bool),
@@ -65,13 +69,16 @@ fn into_json(value: &Value) -> Json {
         Value::String(string) => json!(string),
         Value::Node(node) => {
             let mut arguments: Vec<Json> = Vec::new();
-            let mut object = into_map(&node.children);
+            let mut object = Map::new();
+            // Properties sit on the node's own line, ahead of its children, so
+            // they go in first: the first value in source is the one kept.
             for entry in &node.entries {
                 match &entry.name {
                     Some(name) => insert_once(&mut object, name, &entry.value),
                     None => arguments.push(into_json(&entry.value)),
                 }
             }
+            extend_once(&mut object, &node.children);
 
             if object.is_empty() {
                 return match arguments.len() {
@@ -136,7 +143,7 @@ mod tests {
         let (meta, warnings) = crate::diagnostics::capture(|| {
             metadata("``attr:\nauthor name=\"P\" {\n  name \"C\"\n  name \"D\"\n}\n``\n")
         });
-        assert_eq!(meta["author"], json!({"name": "C"}));
+        assert_eq!(meta["author"], json!({"name": "P"}));
         assert_eq!(warnings.len(), 2, "{warnings:?}");
     }
 

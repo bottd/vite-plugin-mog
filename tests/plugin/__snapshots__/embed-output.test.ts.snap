@@ -9,7 +9,7 @@ export const toc = [];
 export function Component() {
   return (
     <>
-      <div className={"card \\"quoted\\""}>
+      <div className={"card \\"quoted\\""} data-impact={"{\\"all\\":{\\"after\\":0.524}}"}>
         <ol>
           <li className={"task"} dangerouslySetInnerHTML={{ __html: "one" }} />
           <li>
@@ -32,7 +32,7 @@ export const toc = [];
 <script lang="ts">
 import Embed0 from "/doc.mg?embed=0";
 </script>
-<div class={"card \\"quoted\\""}>
+<div class={"card \\"quoted\\""} data-impact={"{\\"all\\":{\\"after\\":0.524}}"}>
   <ol>
     <li class={"task"}>
       {@html "one"}
@@ -59,7 +59,7 @@ defineExpose({ metadata, toc });
 
 <template>
   <div>
-    <div class="card &quot;quoted&quot;">
+    <div class="card &quot;quoted&quot;" data-impact="{&quot;all&quot;:{&quot;after&quot;:0.524}}">
       <ol>
         <li class="task" v-html="html[0]"></li>
         <li>
@@ -75,7 +75,7 @@ defineExpose({ metadata, toc });
 exports[`document modules with component embeds > wires html embeds into the document module 1`] = `
 "
 export const metadata = {"title":"Embed HTML Test"};
-export const html = "<h1 id=\\"testing-html-embeds\\">Testing HTML Embeds</h1>\\n<figure class=\\"chart\\"><figcaption>Inline markup</figcaption></figure><p>Text after the embed.</p>\\n";
+export const html = "<h1 id=\\"testing-html-embeds\\">Testing HTML Embeds</h1>\\n<figure class=\\"chart\\"><figcaption>Inline markup</figcaption></figure>\\n<p>Text after the embed.</p>\\n";
 export const toc = [{"level":1,"title":"Testing HTML Embeds","id":"testing-html-embeds"}];
 
 export default { metadata, html, toc };"

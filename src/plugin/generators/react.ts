@@ -1,7 +1,12 @@
 import type { MogParseResult } from '@parser';
-import { addDocumentCssImport, addEmbedImports, lines, writeSegments } from './helpers.js';
+import {
+  addDocumentCssImport,
+  addEmbedImports,
+  attrExpr,
+  lines,
+  writeSegments,
+} from './helpers.js';
 
-const className = (classes: string) => (classes ? ` className={${JSON.stringify(classes)}}` : '');
 const innerHtml = (html: string) => `dangerouslySetInnerHTML={{ __html: ${JSON.stringify(html)} }}`;
 
 export function generateReact(
@@ -11,10 +16,9 @@ export function generateReact(
 ): string {
   const children = writeSegments(segments, {
     html: html => `<div style={{ display: 'contents' }} ${innerHtml(html)} />`,
-    embed: i => `<Embed${i} />`,
-    open: (tag, classes) => `<${tag}${className(classes)}>`,
-    close: tag => `</${tag}>`,
-    leaf: (tag, classes, html) => `<${tag}${className(classes)} ${innerHtml(html)} />`,
+    leaf: (tag, attrs, html) => `<${tag}${attrs} ${innerHtml(html)} />`,
+    attr: attrExpr,
+    className: 'className',
   });
 
   return lines(

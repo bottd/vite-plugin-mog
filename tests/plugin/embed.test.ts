@@ -119,6 +119,12 @@ some code
   });
 
   describe('without mode', () => {
+    it('rejects an unknown output mode', async () => {
+      // napi refuses the enum value before the task starts, so the throw is
+      // synchronous; wrapping the call covers a rejection as well.
+      await expect((async () => parseMog('# Test', 'metadata' as never))()).rejects.toThrow();
+    });
+
     it('should error on embed blocks when no language specified', async () => {
       const content = `
 \`\`embed:
