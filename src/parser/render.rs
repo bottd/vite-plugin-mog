@@ -1,5 +1,7 @@
 use crate::embed::{EmbedParseError, Embedded, embed};
-use crate::types::{ContainerTag, DataAttr, EmbedComponent, OutputMode, Segment, TocEntry};
+use crate::types::{
+    ContainerTag, DataAttr, DataFilter, EmbedComponent, OutputMode, Segment, TocEntry,
+};
 use crate::utils::{UrlKind, has_unsafe_scheme, into_slug};
 use arborium::advanced::{Span, spans_to_html};
 use arborium::{Highlighter, HtmlFormat};
@@ -31,9 +33,14 @@ pub fn segments_html(segments: &[Segment]) -> String {
     out
 }
 
-pub fn render(document: &Document, mode: Option<OutputMode>) -> Result<Rendered, EmbedParseError> {
+pub fn render(
+    document: &Document,
+    mode: Option<OutputMode>,
+    data: DataFilter,
+) -> Result<Rendered, EmbedParseError> {
     warn_renamed_blocks(&document.body);
-    let mut renderer = Renderer::new(mode);
+    warn_inline_attachment(&document.body);
+    let mut renderer = Renderer::new(mode, data);
     renderer.blocks(&document.body)?;
     Ok(renderer.finish())
 }
@@ -69,6 +76,8 @@ struct Renderer {
     footnotes: Vec<String>,
     ids: HashSet<String>,
     mode: Option<OutputMode>,
+    /// Which node attribute keys reach the output. See [`DataFilter`].
+    data: DataFilter,
     highlighter: Highlighter,
     /// Counts every embed declaration the renderer visits (incl. CSS, `None`
     /// mode, and failing ones), giving errors their "embed #N" number.
@@ -76,7 +85,7 @@ struct Renderer {
 }
 
 impl Renderer {
-    fn new(mode: Option<OutputMode>) -> Self {
+    fn new(mode: Option<OutputMode>, data: DataFilter) -> Self {
         Self {
             root: Vec::new(),
             open: Vec::new(),
@@ -87,6 +96,7 @@ impl Renderer {
             footnotes: Vec::new(),
             ids: HashSet::new(),
             mode,
+            data,
             highlighter: Highlighter::new(),
             embed_decls: 0,
         }
@@ -218,7 +228,7 @@ impl Renderer {
                 let (classes, status) = marker_markup(node);
                 self.push_block(&format!(
                     "<h{level}{id_attr}{}>{status}{}{title_html}</h{level}>",
-                    attrs_html(&classes, &data_attrs(node)),
+                    attrs_html(&classes, &data_attrs(node, &self.data)),
                     gap(status, &title_html)
                 ));
                 if !id.is_empty() {
@@ -233,13 +243,17 @@ impl Renderer {
             // A free marker carries no meaning of its own: it is a grouping
             // block, so it renders as one and whatever it captured renders in it.
             NodeKind::Marker(marker) if marker.kind == MarkerKind::Free => {
-                self.open(ContainerTag::div, classes(node), data_attrs(node));
+                self.open(
+                    ContainerTag::div,
+                    classes(node),
+                    data_attrs(node, &self.data),
+                );
                 self.out.push('\n');
                 self.blocks(&node.children)?;
                 self.close(ContainerTag::div);
                 self.out.push('\n');
             }
-            NodeKind::Paragraph => self.paragraph(&node.children, &class_attr(node)),
+            NodeKind::Paragraph => self.paragraph(&node.children, &class_attr(node, &self.data)),
             NodeKind::Table => self.table(node),
             NodeKind::Delimiter(Delimiter::Verbatim) => self.verbatim(node)?,
             // Nothing else reaches here: `blocks` takes list markers as runs
@@ -277,7 +291,7 @@ impl Renderer {
             }
 
             let (classes, status) = marker_markup(node);
-            let data = data_attrs(node);
+            let data = data_attrs(node, &self.data);
             let (inline, content) = split_content(node);
             let html = self.inline(inline);
             let gap = gap(status, &html);
@@ -326,19 +340,19 @@ impl Renderer {
     /// anywhere in the table, so every row lives in one `<tbody>` rather than
     /// splitting a `<thead>` that could not hold them all.
     fn table(&mut self, node: &Node) {
-        let mut html = format!("<table{}><tbody>", class_attr(node));
+        let mut html = format!("<table{}><tbody>", class_attr(node, &self.data));
         for row in &node.children {
             let cell_tag = match row.kind {
                 NodeKind::Delimiter(Delimiter::TableHeader) => "th",
                 _ => "td",
             };
-            let _ = write!(html, "<tr{}>", class_attr(row));
+            let _ = write!(html, "<tr{}>", class_attr(row, &self.data));
             for cell in &row.children {
                 let content = self.inline(&cell.children);
                 let _ = write!(
                     html,
                     "<{cell_tag}{}>{content}</{cell_tag}>",
-                    class_attr(cell)
+                    class_attr(cell, &self.data)
                 );
             }
             html.push_str("</tr>");
@@ -443,7 +457,11 @@ impl Renderer {
                     let content = self.inline(&node.children);
                     match inline_tag(*delimiter) {
                         Some(tag) => {
-                            let _ = write!(out, "<{tag}{}>{content}</{tag}>", class_attr(node));
+                            let _ = write!(
+                                out,
+                                "<{tag}{}>{content}</{tag}>",
+                                class_attr(node, &self.data)
+                            );
                         }
                         None => out.push_str(&content),
                     }
@@ -507,7 +525,7 @@ impl Renderer {
                     r#"<img src="{}" alt="{}"{} />"#,
                     encode_minimal(&relative(&href)),
                     encode_minimal(&alt),
-                    link_data(node)
+                    link_data(node, &self.data)
                 );
                 return;
             }
@@ -525,7 +543,7 @@ impl Renderer {
             out,
             r#"<a href="{}"{external}{}>{display}</a>"#,
             encode_minimal(&href),
-            link_data(node)
+            link_data(node, &self.data)
         );
     }
 
@@ -644,6 +662,56 @@ fn write_close(out: &mut String, tag: ContainerTag) {
 /// plausible languages for a real sample, which renaming would delete from the
 /// page — so each warns only where it used to be read: `meta` opening the
 /// document, `data` at the root. Remove with the git pin (see Cargo.toml).
+/// One missing blank line moves an `` ``attr: `` block between two unrelated
+/// places: directly under a bullet it lands on the `<li>`, a blank line later it
+/// merges into document metadata. Both are legitimate, so this is a warning
+/// rather than an error — but a generator writing those blocks should hear about
+/// it, and at a glance the two spellings look the same.
+///
+/// Only blocks written on their own lines count. An inline one
+/// (`# Heading ``attr: k 1``)` is unambiguous and carries no span, which is how
+/// the two are told apart.
+fn warn_inline_attachment(body: &[Node]) {
+    for node in body {
+        let blocks = node
+            .attributes
+            .as_deref()
+            .map(|attributes| attributes.blocks.as_slice())
+            .unwrap_or_default();
+
+        if let Some(owner) = inline_bearing(node) {
+            for block in blocks {
+                crate::diagnostics::warn(format!(
+                    "an ``attr: block on line {} attached to the {owner} on line {}, \
+                     not to the document. A blank line between them would make it \
+                     document metadata instead.",
+                    block.start_line + 1,
+                    node.span.map_or(0, |span| span.start_line) + 1,
+                ));
+            }
+        }
+
+        warn_inline_attachment(&node.children);
+    }
+}
+
+/// What a node is called in that warning, or `None` when a block under it is
+/// unambiguous — a fence block owns what sits inside it, which is the whole
+/// point of the fence.
+fn inline_bearing(node: &Node) -> Option<&'static str> {
+    match &node.kind {
+        NodeKind::Marker(marker) => match marker.kind {
+            MarkerKind::Free => None,
+            MarkerKind::Heading => Some("heading"),
+            MarkerKind::UnorderedList | MarkerKind::OrderedList => Some("list item"),
+            MarkerKind::Blockquote => Some("blockquote"),
+        },
+        NodeKind::Paragraph => Some("paragraph"),
+        NodeKind::Table => Some("table"),
+        _ => None,
+    }
+}
+
 fn warn_renamed_blocks(body: &[Node]) {
     if body.first().and_then(verbatim_lang) == Some("meta") {
         crate::diagnostics::warn(
@@ -743,17 +811,17 @@ fn bare_args(node: &Node) -> impl Iterator<Item = &str> {
 
 /// Bare attributes become classes. Links and verbatim blocks never come through
 /// here — theirs name a protocol or a language, and both render their own tag.
-fn class_attr(node: &Node) -> String {
-    attrs_html(&classes(node), &data_attrs(node))
+fn class_attr(node: &Node, data: &DataFilter) -> String {
+    attrs_html(&classes(node), &data_attrs(node, data))
 }
 
 /// A link's `` ``attr: `` block sits in its `((name))`, the one part of a link
 /// that holds markup, and describes the `<a>` or `<img>` the link becomes.
-fn link_data(link: &Node) -> String {
+fn link_data(link: &Node, data: &DataFilter) -> String {
     link.children
         .iter()
         .find(|child| is_delimiter(child, Delimiter::LinkName))
-        .map(|name| data_html(&data_attrs(name)))
+        .map(|name| data_html(&data_attrs(name, data)))
         .unwrap_or_default()
 }
 
@@ -765,10 +833,15 @@ fn attrs_html(classes: &str, data: &[DataAttr]) -> String {
 /// A node's `` ``attr: `` block as `data-*` attributes, one per top-level key:
 /// a scalar as written, anything nested as JSON. The block's KDL arrives as the
 /// attributes' children (see `metadata`), and merges the same way.
-fn data_attrs(node: &Node) -> Vec<DataAttr> {
+fn data_attrs(node: &Node, filter: &DataFilter) -> Vec<DataAttr> {
     let mut data: Vec<DataAttr> = Vec::new();
     let keys = node.attributes.iter().flat_map(|owned| &owned.children);
     for (key, entry) in keys.filter_map(|entry| Some((entry.name.as_deref()?, entry))) {
+        // Filtered before validation: a warning about a key that renders
+        // nowhere describes output the document no longer has.
+        if !filter.allows(key) {
+            continue;
+        }
         // The name lands in a tag unquoted — and, lifted, in JSX, which is the
         // stricter of the two: no `.`, which HTML alone would take.
         let valid = !key.is_empty()
@@ -796,11 +869,43 @@ fn data_attrs(node: &Node) -> Vec<DataAttr> {
     data
 }
 
+/// A `data-*` value, quoted with whichever quote costs less.
+///
+/// Anything nested renders as JSON, so a double-quoted attribute turns every
+/// `"` in it into `&quot;` — six bytes for one. Single-quoting a JSON value
+/// escapes nothing but `&`, which JSON does not produce. One measured attribute
+/// went from 514 bytes to 284.
+///
+/// Both forms parse to the same `dataset` value; `<` and `>` need no escaping
+/// inside a quoted attribute value, which is where the rest of the saving is.
 fn data_html(data: &[DataAttr]) -> String {
     data.iter().fold(String::new(), |mut out, attr| {
-        let _ = write!(out, r#" {}="{}""#, attr.name, encode_minimal(&attr.value));
+        let doubles = attr.value.matches('"').count();
+        let singles = attr.value.matches('\'').count();
+
+        let _ = match doubles > singles {
+            true => write!(
+                out,
+                " {}='{}'",
+                attr.name,
+                encode_single_quoted(&attr.value)
+            ),
+            false => write!(out, r#" {}="{}""#, attr.name, encode_minimal(&attr.value)),
+        };
         out
     })
+}
+
+fn encode_single_quoted(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for char in value.chars() {
+        match char {
+            '&' => out.push_str("&amp;"),
+            '\'' => out.push_str("&#39;"),
+            _ => out.push(char),
+        }
+    }
+    out
 }
 
 fn classes(node: &Node) -> String {
@@ -990,7 +1095,7 @@ mod tests {
     use super::*;
 
     fn segments(source: &str, mode: Option<OutputMode>) -> Vec<Segment> {
-        render(&mog_parser::parse(source), mode)
+        render(&mog_parser::parse(source), mode, DataFilter::All)
             .expect("render")
             .segments
     }
@@ -1001,6 +1106,135 @@ mod tests {
 
     fn html_with_warnings(source: &str) -> (String, Vec<String>) {
         crate::diagnostics::capture(|| html(source))
+    }
+
+    fn html_filtered(source: &str, data: DataFilter) -> String {
+        segments_html(
+            &render(&mog_parser::parse(source), None, data)
+                .expect("render")
+                .segments,
+        )
+    }
+
+    fn warnings(source: &str) -> Vec<String> {
+        crate::diagnostics::capture(|| {
+            let _ = render(&mog_parser::parse(source), None, DataFilter::All);
+        })
+        .1
+    }
+
+    const ATTRIBUTED: &str =
+        "=hero:\n``attr:\nimpact 1\nsize 2\n``\n## Abrams\n\n- one\n``attr:\nimpact 3\n``\n=\n";
+    const BARE: &str = "=hero:\n## Abrams\n\n- one\n=\n";
+
+    #[test]
+    fn a_json_value_is_single_quoted_rather_than_paying_for_every_quote() {
+        let html = html_filtered(
+            "=card:\n``attr:\nimpact { all before=0.505 }\n``\n# A\n=\n",
+            DataFilter::All,
+        );
+
+        assert!(
+            html.contains(r#"data-impact='{"all":{"before":0.505}}'"#),
+            "{html}"
+        );
+        assert!(!html.contains("&quot;"), "{html}");
+    }
+
+    #[test]
+    fn a_value_with_more_apostrophes_stays_double_quoted() {
+        let html = html_filtered(
+            "=card:\n``attr:\nquip \"it's o'clock\"\n``\n# A\n=\n",
+            DataFilter::All,
+        );
+
+        assert!(
+            html.contains(r#"data-quip="it&#x27;s o&#x27;clock""#),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn a_value_holding_both_quote_characters_escapes_whichever_it_is_quoted_with() {
+        let html = html_filtered(
+            "=card:\n``attr:\nmixed \"say \\\"hi\\\" o'clock\"\n``\n# A\n=\n",
+            DataFilter::All,
+        );
+
+        // two double quotes against one apostrophe, so single-quoted
+        assert!(
+            html.contains(r#"data-mixed='say "hi" o&#39;clock'"#),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn an_ampersand_is_escaped_in_either_quoting() {
+        let html = html_filtered(
+            "=card:\n``attr:\na \"x & \\\"y\\\" & z\"\n``\n# A\n=\n",
+            DataFilter::All,
+        );
+
+        assert!(html.contains("&amp;"), "{html}");
+    }
+
+    #[test]
+    fn filtering_every_key_renders_what_the_document_without_blocks_renders() {
+        assert_eq!(
+            html_filtered(ATTRIBUTED, DataFilter::None),
+            html_filtered(BARE, DataFilter::None)
+        );
+        // and the blocks really were doing something before
+        assert_ne!(
+            html_filtered(ATTRIBUTED, DataFilter::All),
+            html_filtered(BARE, DataFilter::All)
+        );
+    }
+
+    #[test]
+    fn an_allow_list_selects_by_top_level_key() {
+        let html = html_filtered(
+            ATTRIBUTED,
+            DataFilter::Allow(["impact".to_string()].into_iter().collect()),
+        );
+
+        assert!(html.contains("data-impact"), "{html}");
+        assert!(!html.contains("data-size"), "{html}");
+    }
+
+    #[test]
+    fn a_filtered_key_does_not_warn_about_output_it_no_longer_has() {
+        let source = "# H\n\n=x:\n``attr:\nnot.valid 1\n``\n=\n";
+        let (_, warned) = crate::diagnostics::capture(|| html_filtered(source, DataFilter::All));
+        let (_, quiet) = crate::diagnostics::capture(|| html_filtered(source, DataFilter::None));
+
+        assert_eq!(warned.len(), 1, "{warned:?}");
+        assert!(quiet.is_empty(), "{quiet:?}");
+    }
+
+    #[test]
+    fn an_attr_block_under_a_bullet_warns_that_it_attached_to_the_item() {
+        let warnings = warnings("- one\n``attr:\nimpact 1\n``\n");
+
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(warnings[0].contains("list item"), "{warnings:?}");
+        assert!(warnings[0].contains("line 2"), "{warnings:?}");
+        assert!(warnings[0].contains("line 1"), "{warnings:?}");
+    }
+
+    #[test]
+    fn a_blank_line_makes_it_metadata_without_a_warning() {
+        assert!(warnings("- one\n\n``attr:\nimpact 1\n``\n").is_empty());
+    }
+
+    #[test]
+    fn a_block_directly_under_a_fence_is_unambiguous_and_quiet() {
+        assert!(warnings("=hero:\n``attr:\nimpact 1\n``\n## A\n=\n").is_empty());
+    }
+
+    #[test]
+    fn an_inline_block_is_unambiguous_and_quiet() {
+        assert!(warnings("# Heading ``attr: k 1``\n").is_empty());
     }
 
     /// The segments' structure with the HTML elided: `<div.card> html embed0 </div>`.
@@ -1172,7 +1406,9 @@ mod tests {
         );
         assert!(
             out.contains(
-                r#"<div class="hero abrams" data-impact="{&quot;all&quot;:{&quot;before&quot;:0.505,&quot;matches&quot;:21734}}" data-label="A &amp; B">"#
+                // JSON is single-quoted (see data_html); a plain string with no
+                // quote in it stays double-quoted.
+                r#"<div class="hero abrams" data-impact='{"all":{"before":0.505,"matches":21734}}' data-label="A &amp; B">"#
             ),
             "{out}"
         );
@@ -1183,6 +1419,7 @@ mod tests {
         let rendered = render(
             &mog_parser::parse("=card:\n``attr:\nsize 3\n``\n``embed:svelte:\n<X/>\n``\n=\n"),
             Some(OutputMode::svelte),
+            DataFilter::All,
         )
         .expect("render");
         assert!(
@@ -1393,8 +1630,12 @@ mod tests {
 
     #[test]
     fn toc_titles_are_plain_text() {
-        let rendered =
-            render(&mog_parser::parse("# **Formatted** heading\n"), None).expect("render");
+        let rendered = render(
+            &mog_parser::parse("# **Formatted** heading\n"),
+            None,
+            DataFilter::All,
+        )
+        .expect("render");
         assert_eq!(rendered.toc[0].title, "Formatted heading");
     }
 }

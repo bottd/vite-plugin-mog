@@ -29,6 +29,10 @@
     "./metadata": {
       "types": "./dist/plugin/types/metadata.d.ts"
     },
+    "./parser": {
+      "types": "./dist/parser/index.d.ts",
+      "import": "./dist/parser/index.js"
+    },
     "./package.json": "./package.json"
   },
   "engines": {
@@ -50,8 +54,8 @@
   },
   "scripts": {
     "build": "npm run build:napi && npm run build:js",
-    "build:napi": "napi build --release --platform --esm --output-dir dist/napi/",
-    "build:js": "rimraf dist/plugin && vite build",
+    "build:napi": "node scripts/require-rust.mjs && napi build --release --platform --esm --output-dir dist/napi/",
+    "build:js": "node scripts/build-js.mjs",
     "clean": "rimraf dist target",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

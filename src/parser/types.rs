@@ -89,6 +89,70 @@ impl fmt::Display for ContainerTag {
     }
 }
 
+/// Which of a node's `` ``attr: `` keys render as `data-*` attributes.
+///
+/// An explicit mode rather than a nullable list: an empty list has to mean
+/// "none", and that is indistinguishable from "unset" on the way over.
+#[napi(string_enum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum DataAttributesMode {
+    all,
+    none,
+    allow,
+}
+
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct DataAttributes {
+    pub mode: DataAttributesMode,
+    /// The selected top-level keys, when `mode` is `allow`.
+    pub keys: Option<Vec<String>>,
+}
+
+/// A node's `` ``attr: `` keys are filtered here and nowhere else, so adding a
+/// rendering site cannot quietly skip the option.
+#[derive(Debug, Clone, Default)]
+pub enum DataFilter {
+    /// Today's behaviour, and what the raw binding does when asked for nothing.
+    #[default]
+    All,
+    None,
+    Allow(std::collections::HashSet<String>),
+}
+
+impl DataFilter {
+    pub fn allows(&self, key: &str) -> bool {
+        match self {
+            Self::All => true,
+            Self::None => false,
+            Self::Allow(keys) => keys.contains(key),
+        }
+    }
+
+    /// Whether any key can render. A document whose keys are all filtered out
+    /// must not warn about them either — the warnings describe output that no
+    /// longer exists.
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None) || matches!(self, Self::Allow(keys) if keys.is_empty())
+    }
+}
+
+impl From<Option<DataAttributes>> for DataFilter {
+    fn from(option: Option<DataAttributes>) -> Self {
+        match option {
+            None => DataFilter::All,
+            Some(DataAttributes { mode, keys }) => match mode {
+                DataAttributesMode::all => DataFilter::All,
+                DataAttributesMode::none => DataFilter::None,
+                DataAttributesMode::allow => {
+                    DataFilter::Allow(keys.unwrap_or_default().into_iter().collect())
+                }
+            },
+        }
+    }
+}
+
 /// A `data-*` attribute from a node's `` ``attr: `` block.
 #[napi(object)]
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -1722,8 +1722,7 @@ dependencies = [
 
 [[package]]
 name = "mog-parser"
-version = "0.1.1"
-source = "git+https://github.com/bottd/mog.git?rev=57b31bfb390982f1b6ec0cb138727b40697c6f31#57b31bfb390982f1b6ec0cb138727b40697c6f31"
+version = "0.2.0"
 dependencies = [
  "kdl",
  "serde",

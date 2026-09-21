@@ -9,7 +9,14 @@ import {
   type FilterPattern,
   type Plugin,
 } from 'vite';
-import { parseMog, getThemeCss, themeNames, OutputMode } from '@parser';
+import {
+  parseMog,
+  getThemeCss,
+  themeNames,
+  OutputMode,
+  DataAttributesMode,
+  type DataAttributes,
+} from '@parser';
 import { generateOutput, type GeneratorMode } from './generators/index.js';
 
 export interface MogPluginOptions {
@@ -23,6 +30,25 @@ export interface MogPluginOptions {
   theme?: string | { light: string; dark: string };
   componentDir?: string;
   components?: Record<string, string>;
+  /**
+   * Which of a node's `attr` keys render as `data-*` attributes on its element.
+   *
+   * `false` (the default) renders none, `true` renders all, and an array selects
+   * by top-level key. Data in a document is not necessarily data for the DOM,
+   * and shipping it to every visitor by default is the surprising direction:
+   * documents that carry numbers for a build pipeline paid for them in page
+   * weight without anything reading them.
+   *
+   * Root-level `attr` blocks are unaffected — they remain `metadata`.
+   */
+  dataAttributes?: boolean | string[];
+}
+
+function dataAttributes(option: MogPluginOptions['dataAttributes']): DataAttributes {
+  if (Array.isArray(option)) {
+    return { mode: DataAttributesMode.allow, keys: option };
+  }
+  return { mode: option ? DataAttributesMode.all : DataAttributesMode.none, keys: undefined };
 }
 
 const VIRTUAL_CSS_ID = 'virtual:mog-arborium.css';
@@ -167,7 +193,16 @@ function svelteCompilesMog(plugins: readonly Plugin[]): boolean {
 }
 
 export function mogPlugin(options: MogPluginOptions): Plugin {
-  const { include, exclude, mode, theme, componentDir, components: explicitComponents } = options;
+  const {
+    include,
+    exclude,
+    mode,
+    theme,
+    componentDir,
+    components: explicitComponents,
+    dataAttributes: dataAttributesOption,
+  } = options;
+  const data = dataAttributes(dataAttributesOption);
 
   if (!Object.prototype.hasOwnProperty.call(modeExtensions, mode)) {
     throw new Error(
@@ -231,7 +266,7 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
     if (!pending) {
       const fresh: Promise<ParseResult> = readFile(path, 'utf-8')
         .then(async content => {
-          const result = await parseMog(content, parserMode);
+          const result = await parseMog(content, parserMode, data);
           if (parseCache.get(key) !== fresh) return cachedParse(path, parserMode, warn);
           const shown = warned.get(path) ?? new Map<string, number>();
           const counts = new Map<string, number>();

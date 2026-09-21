@@ -160,6 +160,7 @@ mod tests {
                 ty: None,
                 value: Value::String("Kept".to_string()),
             }],
+            blocks: Vec::new(),
         };
         let (meta, warnings) = crate::diagnostics::capture(|| extract_metadata(Some(&attributes)));
         assert_eq!(meta["title"], json!("Kept"));

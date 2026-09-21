@@ -67,12 +67,16 @@ front matter can be split up or appended to further down. A key set twice keeps
 its first value, with a build warning. An `attr` block indented under a marker
 attaches to that node instead of the document.
 
-A node's `attr` block renders as `data-*` attributes on its element, one per
+A node's `attr` block can render as `data-*` attributes on its element, one per
 top-level key in source order: a scalar as written, anything nested as JSON. A
 list marker's block lands on its `<li>`, and a link's goes in its name —
 `[[target]]((name ``attr: k 1``))` — and lands on the `<a>` or `<img>`. Keys
 hold letters, digits, `-` and `_`; they are lowercased, and a repeat keeps its
 first value, with a build warning.
+
+This is **off by default**. Data in a document is not necessarily data for the
+DOM: a document that carries numbers for a build pipeline should not make every
+visitor download them. Turn it on with [`dataAttributes`](#options).
 
 ```mog
 =hero:
@@ -84,12 +88,57 @@ impact { all before=0.505 after=0.524 }
 ```
 
 ```html
-<div class="hero" data-impact="{&quot;all&quot;:{&quot;before&quot;:0.505,&quot;after&quot;:0.524}}">
-<h2 id="abrams">Abrams</h2>
+<!-- with dataAttributes: true -->
+<div class="hero" data-impact='{"all":{"before":0.505,"after":0.524}}'>
+  <h2 id="abrams">Abrams</h2>
 </div>
 ```
 
-Read it back with `JSON.parse(element.dataset.impact)`.
+Read it back with `JSON.parse(element.dataset.impact)`. A value is single-quoted
+when that costs less — JSON is full of `"`, and each one would otherwise become
+`&quot;` — and double-quoted otherwise. Both parse to the same `dataset` value.
+
+A `data-*` value does not carry its type. `a "true"` and `b #true` both render
+as `="true"`, and a string that happens to contain JSON is indistinguishable
+from a nested value. Whatever reads the attribute has to know the schema.
+
+### Where an `attr` block attaches
+
+The block belongs to whatever is directly above it, and one blank line changes
+what that is:
+
+```mog
+=hero:
+``attr:
+impact 1
+``
+## Abrams
+=
+```
+
+Directly under a fence it attaches to the block — `data-impact` on the `<div>`.
+
+```mog
+- one
+``attr:
+impact 1
+``
+```
+
+Directly under a bullet, with no blank line, it attaches to that list item —
+`data-impact` on the `<li>`. The plugin emits a build warning here, because the
+next case looks almost identical and means something else.
+
+```mog
+- one
+
+``attr:
+impact 1
+``
+```
+
+After a blank line, at the top level, it merges into the document's `metadata`
+and renders nothing.
 
 > **Renamed:** this block was `meta`, and node attributes were `data`. Both
 > spellings now parse as ordinary verbatim blocks — the content renders as a code
@@ -107,14 +156,15 @@ The [Mog spec](https://github.com/bottd/mog) has the full syntax.
 
 ## Options
 
-| Option         | Type                                                   | Description                                                             |
-| -------------- | ------------------------------------------------------ | ----------------------------------------------------------------------- |
-| `mode`         | `'html' \| 'react' \| 'svelte' \| 'vue' \| 'metadata'` | Required. What a `.mg` import compiles to.                              |
-| `theme`        | `string \| { light: string; dark: string }`            | Syntax highlighting theme. A pair switches on `prefers-color-scheme`.   |
-| `include`      | `FilterPattern`                                        | Limit which `.mg` files the plugin handles.                             |
-| `exclude`      | `FilterPattern`                                        | Skip matching `.mg` files.                                              |
-| `componentDir` | `string`                                               | Directory scanned for components that embeds can use.                   |
-| `components`   | `Record<string, string>`                               | Explicit name to import path map. Takes precedence over `componentDir`. |
+| Option           | Type                                                   | Description                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`           | `'html' \| 'react' \| 'svelte' \| 'vue' \| 'metadata'` | Required. What a `.mg` import compiles to.                                                                                                                                              |
+| `theme`          | `string \| { light: string; dark: string }`            | Syntax highlighting theme. A pair switches on `prefers-color-scheme`.                                                                                                                   |
+| `include`        | `FilterPattern`                                        | Limit which `.mg` files the plugin handles.                                                                                                                                             |
+| `exclude`        | `FilterPattern`                                        | Skip matching `.mg` files.                                                                                                                                                              |
+| `componentDir`   | `string`                                               | Directory scanned for components that embeds can use.                                                                                                                                   |
+| `components`     | `Record<string, string>`                               | Explicit name to import path map. Takes precedence over `componentDir`.                                                                                                                 |
+| `dataAttributes` | `boolean \| string[]`                                  | Which node `attr` keys render as `data-*`. Defaults to `false` — none. `true` renders all, an array selects by top-level key. Root-level blocks are unaffected; they remain `metadata`. |
 
 ## Usage
 
@@ -167,6 +217,56 @@ whatever the mode:
 ```javascript
 import { metadata, toc } from './document.mg?metadata';
 ```
+
+## Reading documents outside Vite
+
+A build script, a database job or a code generator wants the document, not HTML.
+`vite-plugin-mog/parser` exposes the parser on its own — importing it pulls in
+neither Vite nor any framework peer, so a script can depend on this package
+alone.
+
+```javascript
+import { parseMogAst } from 'vite-plugin-mog/parser';
+
+const document = await parseMogAst(await readFile('patch.mg', 'utf8'));
+```
+
+It renders nothing: no highlighting, no embed extraction, no diagnostics. The
+tree is the parser's own — `{ attributes?, body }`, each node
+`{ kind, attributes?, children?, span?, fence? }` — tagged on `kind` so
+TypeScript narrows it without casts. A node's chain (`=hero:abrams:` gives
+`hero` and `abrams`) stays in `attributes.entries`, separate from what its
+`attr` blocks declared in `attributes.children`.
+
+Pass `{ unfolded: true }` to keep `attr` blocks in the tree as their own nodes
+rather than folding them into their owner.
+
+### Editing documents in place
+
+Every block-level node carries a `span`, and `attributes.blocks` holds the spans
+of the `attr` blocks behind its `children`. Together they are enough to rewrite a
+document by splicing text, without a printer and without reformatting anything
+the edit did not touch:
+
+- replace `attributes.blocks[0]` to rewrite an existing block;
+- insert after a marker's `fence` — its opening line alone — to add one.
+
+```javascript
+const hero = document.body[0];
+const [block] = hero.attributes?.blocks ?? [];
+const next = block
+  ? source.slice(0, block.start) + rewritten + source.slice(block.end)
+  : source.slice(0, hero.fence.end) + '\n' + rewritten + source.slice(hero.fence.end);
+```
+
+> `span.start` and `span.end` are **UTF-8 byte offsets**, while a JavaScript
+> string is indexed in UTF-16 code units. `source.slice(start, end)` is wrong for
+> any document containing a non-ASCII character. Splice on `startLine` /
+> `endLine`, or slice a `Buffer`.
+
+An inline `attr` block — one written inside a line — contributes no span, because
+a span covering the whole line would delete the line. `blocks` being empty means
+"nothing to splice", never "no attributes".
 
 ## Syntax highlighting
 
@@ -271,6 +371,30 @@ pnpm test    # JS tests
 cargo test   # Rust tests
 nix fmt      # lint and format
 ```
+
+`rustc` and `cargo` have to be on `PATH`; outside the dev shell, build with
+`nix develop --command pnpm run build`.
+
+### Consuming a local checkout
+
+Use `link:`, not `file:`:
+
+```json
+{ "dependencies": { "vite-plugin-mog": "link:../vite-plugin-mog" } }
+```
+
+`files` excludes `dist/napi/*.node`, because a published install gets its binary
+from a platform package. `file:` copies the package, so it copies the new
+JavaScript and no binary — and the loader then falls back to whichever published
+platform package is already in the store. The result is new JavaScript calling an
+old parser, with nothing to show for it but wrong output.
+
+The two halves therefore check each other: the native binary is stamped with a
+digest of the Rust sources and `Cargo.lock` it was built from, the JavaScript
+build computes the same digest, and loading the parser throws when they differ.
+A version comparison cannot catch this — an unreleased checkout and the published
+release it shadows carry the same version string, and released binaries are built
+before the version bump.
 
 ## License
 

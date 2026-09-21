@@ -7,5 +7,6 @@ vi.mock('@parser', async () => {
     getThemeCss: mod.getThemeCss,
     themeNames: mod.themeNames,
     OutputMode: mod.OutputMode,
+    DataAttributesMode: mod.DataAttributesMode,
   };
 });

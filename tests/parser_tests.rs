@@ -1,5 +1,6 @@
 use insta::assert_yaml_snapshot;
 use std::fs;
+use vite_plugin_mog_parser::DataFilter;
 use vite_plugin_mog_parser::{
     MogParseResult, OutputMode, Segment, extract_metadata, parse_on_bounded_stack, render,
     segments_html,
@@ -7,7 +8,7 @@ use vite_plugin_mog_parser::{
 
 // The napi export is async; this is the same parse without the promise.
 fn parse(content: &str) -> MogParseResult {
-    parse_on_bounded_stack(content, None).expect("failed to parse mog")
+    parse_on_bounded_stack(content, None, DataFilter::All).expect("failed to parse mog")
 }
 
 #[test]
@@ -26,8 +27,8 @@ fn fixture_files_render() {
     ] {
         let content = fs::read_to_string(path).unwrap_or_else(|_| panic!("failed to read {path}"));
         let document = mog_parser::parse(&content);
-        let rendered =
-            render(&document, None).unwrap_or_else(|_| panic!("failed to render {path}"));
+        let rendered = render(&document, None, DataFilter::All)
+            .unwrap_or_else(|_| panic!("failed to render {path}"));
         let metadata = extract_metadata(document.attributes.as_deref());
         assert_yaml_snapshot!(
             path,
@@ -53,7 +54,8 @@ fn css_embeds_leave_the_markup_whole() {
 #[test]
 fn embed_component_indexes_ignore_css_declarations() {
     let content = "``embed:css:\n.foo {}\n``\n\n``embed:svelte:\n<div>one</div>\n``\n\n``embed:svelte:\n<div>two</div>\n``\n";
-    let result = parse_on_bounded_stack(content, Some(OutputMode::svelte)).unwrap();
+    let result =
+        parse_on_bounded_stack(content, Some(OutputMode::svelte), DataFilter::All).unwrap();
 
     let indexes: Vec<_> = result
         .embed_components
@@ -70,7 +72,7 @@ fn embed_component_indexes_ignore_css_declarations() {
 #[test]
 fn embed_errors_report_the_declaration_ordinal() {
     let content = "``embed:css:\n.foo {}\n``\n\n``embed:bogus:\ncontent\n``\n";
-    let message = match parse_on_bounded_stack(content, Some(OutputMode::html)) {
+    let message = match parse_on_bounded_stack(content, Some(OutputMode::html), DataFilter::All) {
         Ok(_) => panic!("expected an embed error"),
         Err(error) => error,
     };
