@@ -30,6 +30,7 @@ export function typeAssertions(node: MogNode, document: MogDocument): void {
 
   document.attributes?.blocks?.[0]?.endLine satisfies number | undefined;
   document.attributes?.plain satisfies Record<string, unknown> | undefined;
+  document.diagnostics satisfies string[] | undefined;
 
   const value = document.attributes?.children?.[0]?.value;
   if (value?.kind === 'int') {
@@ -40,7 +41,11 @@ export function typeAssertions(node: MogNode, document: MogDocument): void {
     value.entries?.[0]?.name satisfies string | undefined;
   }
 
-  parseMogAst('', { unfolded: true, plain: true }) satisfies Promise<MogDocument>;
+  parseMogAst('', {
+    unfolded: true,
+    plain: true,
+    diagnostics: true,
+  }) satisfies Promise<MogDocument>;
   parseMogAst('') satisfies Promise<MogDocument>;
   parseMogMetadata('') satisfies Promise<MogMetadataResult>;
   // @ts-expect-error Options must remain checked through the public declaration.

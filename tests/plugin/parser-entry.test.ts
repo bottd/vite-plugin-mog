@@ -177,6 +177,17 @@ describe('the plain projection', () => {
     });
   });
 
+  it('omits plain when an owner has no attribute children', async () => {
+    for (const source of ['=hero:\n# A\n=\n', '=hero:\n``attr:\n``\n=\n']) {
+      const { body } = await parseMogAst(source, { plain: true });
+      expect(body[0].attributes?.entries).toBeDefined();
+      expect(body[0].attributes).not.toHaveProperty('plain');
+    }
+    const { attributes } = await parseMogAst('``attr:\n``\n', { plain: true });
+    expect(attributes?.blocks).toHaveLength(1);
+    expect(attributes).not.toHaveProperty('plain');
+  });
+
   it('applies the metadata rule rather than restating the tree', async () => {
     const source =
       '``attr:\ntitle "Patch"\nauthors "John" "Jane"\nversion 1\nauthor name="Drake" {\n  email "a@b.com"\n}\nbig 99999999999999999999\n``\n';
@@ -204,6 +215,44 @@ describe('the plain projection', () => {
     const { body } = await parseMogAst('=hero:\n``attr:\nimpact 3\n``\n# A\n=\n', { plain: true });
 
     expect(body[0].attributes?.plain).toEqual({ impact: 3 });
+  });
+});
+
+describe('opt-in AST diagnostics', () => {
+  it.each([
+    '``attr:\nimpact {\n``\n',
+    '# Heading\n``attr:\nk 1\n``\n',
+    '=hero:\n=ability:\n# Heading\n``attr:\nk 1\n``\n=\n=\n',
+    '# Heading\n\nParagraph ``attr: impact {``\n',
+    '``attr:\ntitle "T"\n``\n\n``meta:\nlegacy 1\n``\n',
+  ])('matches rendering diagnostics for folded and unfolded %s', async source => {
+    const { diagnostics } = await parseMog(source);
+    expect(diagnostics?.length).toBeGreaterThan(0);
+    for (const unfolded of [false, true]) {
+      for (const plain of [false, true]) {
+        const baseline = await parseMogAst(source, { unfolded, plain });
+        const ast = await parseMogAst(source, { unfolded, plain, diagnostics: true });
+        expect(ast.diagnostics).toEqual(diagnostics);
+        expect(ast).toEqual({ ...baseline, diagnostics });
+        expect(baseline).not.toHaveProperty('diagnostics');
+      }
+    }
+  });
+
+  it('includes an empty array only when diagnostics are requested', async () => {
+    expect(await parseMogAst('# Clean\n', { diagnostics: true })).toHaveProperty('diagnostics', []);
+    expect(await parseMogAst('# Clean\n', { diagnostics: false })).not.toHaveProperty(
+      'diagnostics'
+    );
+  });
+
+  it('keeps plain projection silent even when document diagnostics are requested', async () => {
+    const ast = await parseMogAst('``attr:\ntitle "First"\ntitle "Second"\n``\n', {
+      plain: true,
+      diagnostics: true,
+    });
+    expect(ast.attributes?.plain).toEqual({ title: 'First' });
+    expect(ast.diagnostics).toEqual([]);
   });
 });
 

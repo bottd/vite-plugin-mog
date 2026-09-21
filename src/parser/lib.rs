@@ -184,17 +184,21 @@ pub struct AstOptions {
     /// Keep `` ``attr: `` blocks in the tree as `attributes` nodes instead of
     /// folding them into their owner. Default is the folded tree.
     pub unfolded: Option<bool>,
-    /// Add a `plain` projection beside each `children`, by the same rule and the
+    /// Add a `plain` projection beside nonempty `children`, by the same rule and the
     /// same code `metadata` uses. Off by default: it roughly doubles the
     /// attribute payload. Projection is silent; `parseMogMetadata` reports
     /// diagnostics about repeated keys.
     pub plain: Option<bool>,
+    /// Include document diagnostics, such as invalid KDL and ambiguous attribute
+    /// attachment, without rendering. Off by default; projection remains silent.
+    pub diagnostics: Option<bool>,
 }
 
 pub struct AstTask {
     content: String,
     unfolded: bool,
     plain: bool,
+    diagnostics: bool,
 }
 
 impl Task for AstTask {
@@ -202,7 +206,8 @@ impl Task for AstTask {
     type JsValue = String;
 
     fn compute(&mut self) -> Result<Self::Output> {
-        parse_ast_json(&self.content, self.unfolded, self.plain).map_err(Error::from_reason)
+        parse_ast_json_with_diagnostics(&self.content, self.unfolded, self.plain, self.diagnostics)
+            .map_err(Error::from_reason)
     }
 
     fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
@@ -216,14 +221,29 @@ pub fn parse_ast_json(
     unfolded: bool,
     plain: bool,
 ) -> std::result::Result<String, String> {
+    parse_ast_json_with_diagnostics(content, unfolded, plain, false)
+}
+
+fn parse_ast_json_with_diagnostics(
+    content: &str,
+    unfolded: bool,
+    plain: bool,
+    include_diagnostics: bool,
+) -> std::result::Result<String, String> {
     on_bounded_stack(|| {
         let document = match unfolded {
             true => mog_parser::parse_unfolded(content),
             false => mog_parser::parse(content),
         };
 
-        // Projection is silent: the structured entries retain every value.
-        let json = diagnostics::silence(|| serde_json::to_string(&ast::document(&document, plain)));
+        let diagnostics =
+            include_diagnostics.then(|| diagnostics::capture(|| document::check(&document.body)).1);
+
+        // Projection is silent even when document diagnostics were requested:
+        // the structured entries retain every value, including repeated keys.
+        let json = diagnostics::silence(|| {
+            serde_json::to_string(&ast::document(&document, plain, diagnostics))
+        });
 
         json.map_err(|error| format!("Failed to serialise the document: {error}"))
     })
@@ -247,6 +267,7 @@ pub fn parse_mog_ast_json(content: String, options: Option<AstOptions>) -> Async
         content,
         unfolded: options.unfolded.unwrap_or(false),
         plain: options.plain.unwrap_or(false),
+        diagnostics: options.diagnostics.unwrap_or(false),
     })
 }
 

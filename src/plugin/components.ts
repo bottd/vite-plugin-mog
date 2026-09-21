@@ -79,9 +79,22 @@ export async function injectComponentImports(
     .join('\n');
 
   if (mode === 'svelte') {
-    const { parse } = await import('svelte/compiler');
-    // The AST records even empty scripts, which preprocess callbacks can skip.
-    const { instance } = parse(code, { filename, modern: true });
+    const { parse, preprocess } = await import('svelte/compiler');
+    let ast;
+    try {
+      // Parse valid Svelte directly: preprocessing's tag scanner cannot tell
+      // a real tag from one inside a template expression's string literal.
+      ast = parse(code, { filename, modern: true });
+    } catch {
+      // Preprocessor input may contain other script/style languages. Locate
+      // scripts on a tolerant view that preserves the original source offsets.
+      const mask = ({ content }: { content: string }) => ({
+        code: content.replace(/[^\r\n]/g, ' '),
+      });
+      const view = await preprocess(code, { script: mask, style: mask }, { filename });
+      ast = parse(view.code, { filename, modern: true, loose: true });
+    }
+    const { instance } = ast;
     if (instance) {
       // Start after parsed attributes so a quoted `>` cannot end the tag.
       const end = instance.attributes.at(-1)?.end ?? instance.start;

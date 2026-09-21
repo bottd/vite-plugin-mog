@@ -5,25 +5,46 @@ use crate::diagnostics::warn;
 
 pub(crate) fn check(nodes: &[Node]) {
     warn_renamed_blocks(nodes);
-    warn_attribute_blocks(nodes, 1);
+    warn_attribute_blocks(nodes, 1, None);
 }
 
 // An inline node has no span: use the nearest source-positioned ancestor.
-fn warn_attribute_blocks(nodes: &[Node], line: usize) {
+fn warn_attribute_blocks(nodes: &[Node], line: usize, enclosing_block: Option<usize>) {
     for node in nodes {
         let line = node.span.map_or(line, |span| span.start_line + 1);
         warn_unparsed_attr_block(node, line);
         if let Some(owner) = inline_bearing(node) {
-            for block in node.attributes.iter().flat_map(|owned| &owned.blocks) {
+            // Folded trees record the blocks on the owner; unfolded trees keep
+            // them as children. Both forms describe the same attachments.
+            let blocks = node
+                .attributes
+                .iter()
+                .flat_map(|owned| &owned.blocks)
+                .chain(node.children.iter().filter_map(|child| match child.kind {
+                    NodeKind::Attributes => child.span.as_ref(),
+                    _ => None,
+                }));
+            for block in blocks {
+                let advice = match enclosing_block {
+                    Some(opening) => format!(
+                        "not to the block opened on line {opening}. A blank line between them \
+                         would attach it to that block instead."
+                    ),
+                    None => "not to the document. A blank line between them would make it \
+                             document metadata instead."
+                        .to_string(),
+                };
                 warn(format!(
-                    "an ``attr: block on line {} attached to the {owner} on line {line}, \
-                     not to the document. A blank line between them would make it \
-                     document metadata instead.",
+                    "an ``attr: block on line {} attached to the {owner} on line {line}, {advice}",
                     block.start_line + 1,
                 ));
             }
         }
-        warn_attribute_blocks(&node.children, line);
+        let enclosing_block = match &node.kind {
+            NodeKind::Marker(marker) if marker.kind == MarkerKind::Free => Some(line),
+            _ => enclosing_block,
+        };
+        warn_attribute_blocks(&node.children, line, enclosing_block);
     }
 }
 
@@ -66,7 +87,12 @@ fn inline_bearing(node: &Node) -> Option<&'static str> {
 
 // Migration warnings remain scoped to positions where meta/data were consumed.
 fn warn_renamed_blocks(body: &[Node]) {
-    if body.first().and_then(verbatim_lang) == Some("meta") {
+    if body
+        .iter()
+        .find(|node| !matches!(node.kind, NodeKind::Attributes))
+        .and_then(verbatim_lang)
+        == Some("meta")
+    {
         warn(
             "``meta: is no longer front matter — rename it to ``attr:. It is \
              rendering as a code block and contributes no metadata.",
@@ -78,5 +104,66 @@ fn warn_renamed_blocks(body: &[Node]) {
              meant to, rename it to ``attr:. If it is a code sample, name its \
              language (``kdl:, ``text:) and this warning goes away.",
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::diagnostics;
+
+    #[test]
+    fn attachment_advice_names_the_target_for_every_owner_and_tree_form() {
+        for (opening, owner) in [
+            ("# Heading", "heading"),
+            ("- item", "list item"),
+            (". item", "list item"),
+            ("> quote", "blockquote"),
+            ("paragraph", "paragraph"),
+            ("-| cell", "table"),
+        ] {
+            for (prefix, suffix, owner_line, enclosing) in [
+                ("", "", 1, None),
+                ("=hero:abrams:\n", "=\n", 2, Some(1)),
+                ("=\n", "=\n", 2, Some(1)),
+                ("=hero:abrams:\n=ability:\n", "=\n=\n", 3, Some(2)),
+            ] {
+                let source = format!("{prefix}{opening}\n``attr:\nk 1\n``\n{suffix}");
+                let advice = match enclosing {
+                    Some(line) => format!(
+                        "not to the block opened on line {line}. A blank line between them \
+                         would attach it to that block instead."
+                    ),
+                    None => "not to the document. A blank line between them would make it \
+                             document metadata instead."
+                        .to_string(),
+                };
+                let expected = format!(
+                    "an ``attr: block on line {} attached to the {owner} on line {owner_line}, {advice}",
+                    owner_line + 1,
+                );
+                for tree in [
+                    mog_parser::parse(&source),
+                    mog_parser::parse_unfolded(&source),
+                ] {
+                    let (_, warnings) = diagnostics::capture(|| check(&tree.body));
+                    assert_eq!(
+                        warnings.as_slice(),
+                        std::slice::from_ref(&expected),
+                        "for {source:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn an_enclosing_block_does_not_leak_into_following_root_siblings() {
+        let source = "=hero:\n# Inner\n``attr:\nk 1\n``\n=\n# Root\n``attr:\nk 2\n``\n";
+        let tree = mog_parser::parse(source);
+        let (_, warnings) = diagnostics::capture(|| check(&tree.body));
+        assert_eq!(warnings.len(), 2);
+        assert!(warnings[0].contains("block opened on line 1"));
+        assert!(warnings[1].contains("document metadata instead."));
     }
 }

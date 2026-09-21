@@ -96,7 +96,8 @@ export interface MogAttributes {
    * value. This is the projection `metadata` exports, computed by the same Rust
    * code, so the two agree by construction.
    *
-   * Present only when `parseMogAst` was given `{ plain: true }`. It roughly
+   * Present only when `parseMogAst` was given `{ plain: true }` and `children`
+   * is nonempty. It roughly
    * doubles the attribute payload. Projection is silent; use `parseMogMetadata`
    * for diagnostics about repeated keys.
    */
@@ -146,6 +147,13 @@ export interface MogDocument {
   /** The document's root-level `` ``attr: `` blocks, merged in source order. */
   attributes?: MogAttributes;
   body: MogNode[];
+  /**
+   * Document diagnostics, including invalid KDL and ambiguous attribute
+   * attachment. Present only with `{ diagnostics: true }`, including an empty
+   * array when there are no warnings. Rendering and plain-projection warnings
+   * are not included.
+   */
+  diagnostics?: string[];
 }
 
 /** Generated from the `#[napi(object)]` in the Rust source, so it cannot drift. */
@@ -153,7 +161,7 @@ export type MogAstOptions = import('../napi/index.js').AstOptions;
 
 /**
  * Parses a Mog document to its tree. Renders nothing: no highlighting, no embed
- * extraction, no diagnostics — cheap enough to call for every file in a build.
+ * extraction. Document diagnostics are opt-in via `{ diagnostics: true }`.
  */
 export declare function parseMogAst(
   content: string,

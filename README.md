@@ -244,8 +244,8 @@ import { parseMogAst } from 'vite-plugin-mog/parser';
 const document = await parseMogAst(await readFile('patch.mg', 'utf8'));
 ```
 
-It renders nothing: no highlighting, no embed extraction, no diagnostics. The
-tree is the parser's own — `{ attributes?, body }`, each node
+It renders nothing: no highlighting or embed extraction. Diagnostics are off by
+default. The tree is the parser's own — `{ attributes?, body, diagnostics? }`, each node
 `{ kind, attributes?, children?, span?, fence? }` — tagged on `kind` so
 TypeScript narrows it without casts. A node's chain (`=hero:abrams:` gives
 `hero` and `abrams`) stays in `attributes.entries`, separate from what its
@@ -253,6 +253,21 @@ TypeScript narrows it without casts. A node's chain (`=hero:abrams:` gives
 
 Pass `{ unfolded: true }` to keep `attr` blocks in the tree as their own nodes
 rather than folding them into their owner.
+
+### Document diagnostics
+
+Request `{ diagnostics: true }` to get invalid-KDL, attribute-attachment, and
+migration warnings from the same document check that `parseMog` runs:
+
+```javascript
+const document = await parseMogAst(source, { diagnostics: true });
+for (const message of document.diagnostics) console.warn(message);
+```
+
+This checks the already-parsed tree, including when `{ unfolded: true }` is used.
+The `diagnostics` key is absent by default and is an array (possibly empty) when
+requested. Rendering-specific warnings and plain-value projection warnings are
+not included; use `parseMogMetadata` for warnings about repeated metadata keys.
 
 ### Plain values
 
@@ -269,12 +284,12 @@ const document = await parseMogAst(source, { plain: true });
 document.attributes.plain; // { title: 'Patch' }
 ```
 
-`plain` appears beside `children` on every set of attributes, document and node
-alike, and is computed by the same Rust code `metadata` runs, so the two agree
-by construction — including the `__proto__` guard and integers wider than
-JavaScript can hold exactly. It is opt-in because it roughly doubles the
-attribute payload. Like the rest of the AST API, projection is silent; repeated
-keys remain available in `children`. Use `parseMogMetadata` for metadata diagnostics.
+`plain` appears beside nonempty `children` on document and node attributes, and is
+omitted when there is nothing to project. The same Rust code behind `metadata`
+computes it, so the two agree by construction — including the `__proto__` guard and
+integers wider than JavaScript can hold exactly. It is opt-in because it roughly
+doubles the attribute payload. Projection is silent, and repeated keys remain
+available in `children`; use `parseMogMetadata` for metadata diagnostics.
 
 ### Editing documents in place
 
@@ -384,12 +399,12 @@ minification, or extraction.
 
 `examples/` holds one small project per mode — [svelte](examples/svelte),
 [vue](examples/vue), [react](examples/react), [html](examples/html) — each
-rendering the same two documents, embeds and highlighting included:
-
-`pnpm test:e2e` builds all examples to test each output mode
+rendering the same two documents, embeds and highlighting included.
+`pnpm test:e2e` builds them all to check each output mode.
 
 ## Requirements
 
+- The package is ESM-only, including `vite-plugin-mog/parser`; use `import`.
 - Vite 8+, Node `^20.19` or `>=22.12`
 - React 19+, Svelte 5+, or Vue 3+ for the matching mode
 

@@ -19,13 +19,18 @@ use serde_json::{Map, Value as Json};
 /// several an array, properties or children an object, first key wins — beside
 /// the structured attributes. Opt-in: it roughly doubles the attribute payload,
 /// and a consumer wants one form or the other.
-pub fn document(document: &Document, plain: bool) -> AstDocument<'_> {
+pub fn document(
+    document: &Document,
+    plain: bool,
+    diagnostics: Option<Vec<String>>,
+) -> AstDocument<'_> {
     AstDocument {
         attributes: document
             .attributes
             .as_deref()
             .map(|owned| attributes(owned, plain)),
         body: AstNodes(&document.body, plain),
+        diagnostics,
     }
 }
 
@@ -55,6 +60,8 @@ pub struct AstDocument<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     attributes: Option<AstAttributes<'a>>,
     body: AstNodes<'a>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    diagnostics: Option<Vec<String>>,
 }
 
 /// Serde consumes these borrowed sequences one item at a time. Only the plain
@@ -219,7 +226,8 @@ fn attributes(attributes: &Attributes, plain: bool) -> AstAttributes<'_> {
         children: &attributes.children,
         blocks: &attributes.blocks,
         // the same function `extract_metadata` calls, so the two cannot drift
-        plain: plain.then(|| crate::metadata::into_map(&attributes.children)),
+        plain: (plain && !attributes.children.is_empty())
+            .then(|| crate::metadata::into_map(&attributes.children)),
     }
 }
 
