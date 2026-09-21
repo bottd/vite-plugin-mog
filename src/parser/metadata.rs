@@ -27,7 +27,7 @@ pub fn extract_metadata(attributes: Option<&Attributes>) -> Map<String, Json> {
     into_map(&attributes.children)
 }
 
-fn into_map(attributes: &[Attribute]) -> Map<String, Json> {
+pub(crate) fn into_map(attributes: &[Attribute]) -> Map<String, Json> {
     let mut map = Map::new();
     extend_once(&mut map, attributes);
     map
@@ -56,16 +56,23 @@ fn insert_once(map: &mut Map<String, Json>, name: &str, value: &Value) {
     }
 }
 
+/// JavaScript's exact-integer ceiling. A KDL integer beyond it cannot cross as
+/// a number without losing its low digits — `i64` is not the bound here, because
+/// what receives these is a JS number, not an `i64`.
+const SAFE_INTEGER: i128 = 9_007_199_254_740_991;
+
+/// The integer as a JS-safe number, if representable. Both metadata and the AST
+/// use this bound and otherwise preserve the digits as a string.
+pub(crate) fn safe_integer(int: i128) -> Option<i64> {
+    (int.unsigned_abs() <= SAFE_INTEGER as u128).then_some(int as i64)
+}
+
 pub(crate) fn into_json(value: &Value) -> Json {
     match value {
         Value::Null => Json::Null,
         Value::Bool(bool) => json!(bool),
         Value::Float(float) => json!(float),
-        // serde_json numbers top out at 64 bits; a wider KDL integer keeps its
-        // exact value as a string rather than silently rounding.
-        Value::Int(int) => {
-            i64::try_from(*int).map_or_else(|_| json!(int.to_string()), |n| json!(n))
-        }
+        Value::Int(int) => safe_integer(*int).map_or_else(|| json!(int.to_string()), |n| json!(n)),
         Value::String(string) => json!(string),
         Value::Node(node) => {
             let mut arguments: Vec<Json> = Vec::new();
@@ -165,6 +172,25 @@ mod tests {
         let (meta, warnings) = crate::diagnostics::capture(|| extract_metadata(Some(&attributes)));
         assert_eq!(meta["title"], json!("Kept"));
         assert_eq!(warnings.len(), 1, "{warnings:?}");
+    }
+
+    #[test]
+    fn an_integer_javascript_cannot_hold_exactly_crosses_as_its_digits() {
+        // BREAKING (0.3.0): this used to be bounded by i64, so anything up to
+        // 2^63 crossed as a JSON number — and then lost its low digits on the
+        // way into a JS number. metadata and the AST now share one rule.
+        let meta = metadata("``attr:\nsmall 9007199254740991\nbig 9007199254740993\n``\n");
+
+        assert_eq!(meta["small"], json!(9_007_199_254_740_991i64));
+        assert_eq!(meta["big"], json!("9007199254740993"));
+    }
+
+    #[test]
+    fn a_negative_integer_follows_the_same_bound() {
+        let meta = metadata("``attr:\nsmall -9007199254740991\nbig -9007199254740993\n``\n");
+
+        assert_eq!(meta["small"], json!(-9_007_199_254_740_991i64));
+        assert_eq!(meta["big"], json!("-9007199254740993"));
     }
 
     #[test]

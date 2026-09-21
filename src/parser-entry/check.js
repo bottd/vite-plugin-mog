@@ -11,15 +11,16 @@
  * carries the previous version string. A digest of the sources both halves were
  * built from is the thing that actually differs.
  *
- * `locate` is a function rather than a string because finding the binary is only
- * worth doing when there is an error to write.
+ * `locate` and `packageVersion` are functions rather than strings: finding the
+ * binary and reading package.json are only worth doing when there is an error to
+ * write, and this runs on every import.
  */
 export function buildMismatch({ expected, actual, packageVersion, binaryVersion, locate }) {
   if (actual === expected) return null;
 
   return (
     `[vite-plugin-mog] The native binary was not built from this JavaScript.\n` +
-    `  package ${packageVersion} (build ${expected})\n` +
+    `  package ${packageVersion()} (build ${expected})\n` +
     `  binary  ${binaryVersion} (build ${actual})\n` +
     `  loaded from ${locate()}\n` +
     `Run \`pnpm run build\` to rebuild both halves. If you installed a local ` +

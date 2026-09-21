@@ -1,5 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises';
-import { resolve, dirname, basename, isAbsolute } from 'node:path';
+import { resolve, dirname, isAbsolute } from 'node:path';
 import {
   createFilter,
   normalizePath,
@@ -10,7 +9,6 @@ import {
   type Plugin,
 } from 'vite';
 import {
-  parseMog,
   getThemeCss,
   themeNames,
   OutputMode,
@@ -18,6 +16,9 @@ import {
   type DataAttributes,
 } from '@parser';
 import { generateOutput, type GeneratorMode } from './generators/index.js';
+import { generateMetadata } from './generators/metadata.js';
+import { discoverComponents, injectComponentImports, modeExtensions } from './components.js';
+import { createParseCache } from './parse-cache.js';
 
 export interface MogPluginOptions {
   mode: GeneratorMode;
@@ -57,14 +58,6 @@ const RESOLVED_VIRTUAL_CSS_ID = `\0${VIRTUAL_CSS_ID}`;
 const VIRTUAL_DOC_CSS_PREFIX = 'virtual:mog-css:';
 const RESOLVED_VIRTUAL_DOC_CSS_PREFIX = `\0${VIRTUAL_DOC_CSS_PREFIX}`;
 
-const modeExtensions: Record<GeneratorMode, string | null> = {
-  [OutputMode.html]: null,
-  [OutputMode.svelte]: '.svelte',
-  [OutputMode.vue]: '.vue',
-  [OutputMode.react]: '.jsx',
-  metadata: null,
-};
-
 function buildCss(theme?: MogPluginOptions['theme']): string {
   if (!theme) return '';
   if (typeof theme === 'string') return themeCss(theme);
@@ -86,104 +79,9 @@ function themeCss(theme: string): string {
   return css;
 }
 
-async function scanComponentDir(dir: string, mode: GeneratorMode): Promise<Map<string, string>> {
-  const ext = modeExtensions[mode];
-  if (!ext) return new Map();
-
-  const extensions = mode === OutputMode.react ? ['.jsx', '.tsx'] : [ext];
-  let entries;
-  try {
-    entries = await readdir(dir, { withFileTypes: true, recursive: true });
-  } catch (error) {
-    throw new Error(
-      `[vite-plugin-mog] Cannot read componentDir ${JSON.stringify(dir)}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-      { cause: error }
-    );
-  }
-
-  const components = new Map<string, string>();
-  for (const entry of entries) {
-    // A symlinked component reports as a link rather than a file, and pnpm
-    // workspaces are full of them.
-    const isFile = entry.isFile() || entry.isSymbolicLink();
-    const extension = isFile && extensions.find(ext => entry.name.endsWith(ext));
-    if (!extension) continue;
-
-    const path = normalizePath(resolve(entry.parentPath, entry.name));
-    const name = basename(entry.name, extension);
-    validateComponentName(name);
-    const duplicate = components.get(name);
-    if (duplicate) {
-      throw new Error(
-        `[vite-plugin-mog] Duplicate component name ${JSON.stringify(name)}: ` +
-          `${duplicate} and ${path}.`
-      );
-    }
-    components.set(name, path);
-  }
-  return components;
-}
-
-function validateComponentName(name: string): void {
-  if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name)) {
-    throw new Error(
-      `[vite-plugin-mog] Component name ${JSON.stringify(name)} is not a valid JavaScript identifier.`
-    );
-  }
-}
-
-function componentImportPath(importPath: string, root: string): string {
-  if (importPath.startsWith('.') || isAbsolute(importPath)) {
-    return normalizePath(resolve(root, importPath));
-  }
-  return importPath;
-}
-
 function cleanModuleId(id: string): string {
   const withoutVirtualPrefix = id.startsWith('\0') ? id.slice(1) : id;
   return withoutVirtualPrefix.split('?', 1)[0];
-}
-
-function injectAfterTag(code: string, pattern: RegExp, content: string): string | null {
-  const match = code.match(pattern);
-  if (!match || match.index === undefined) return null;
-  const pos = match.index + match[0].length;
-  return code.slice(0, pos) + '\n' + content + '\n' + code.slice(pos);
-}
-
-function injectComponentImports(
-  code: string,
-  components: Map<string, string>,
-  mode: GeneratorMode
-): string {
-  if (components.size === 0) return code;
-
-  const imports = [...components]
-    .map(([name, path]) => `import ${name} from ${JSON.stringify(path)};`)
-    .join('\n');
-
-  if (mode === OutputMode.svelte) {
-    return (
-      injectAfterTag(code, /<script(?![^>]*\b(?:module|context\s*=))[^>]*>/, imports) ??
-      `<script>\n${imports}\n</script>\n${code}`
-    );
-  }
-
-  if (mode === OutputMode.vue) {
-    const wrapped = /<template[\s>]/.test(code) ? code : `<template>\n${code}\n</template>`;
-    return (
-      injectAfterTag(wrapped, /<script\s+setup[^>]*>/, imports) ??
-      `<script setup>\n${imports}\n</script>\n${wrapped}`
-    );
-  }
-
-  if (mode === OutputMode.react) {
-    return imports + '\n' + code;
-  }
-
-  return code;
 }
 
 /** Whether vite-plugin-svelte is set up to compile `.mg` files itself. */
@@ -204,7 +102,7 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
   } = options;
   const data = dataAttributes(dataAttributesOption);
 
-  if (!Object.prototype.hasOwnProperty.call(modeExtensions, mode)) {
+  if (!Object.hasOwn(modeExtensions, mode)) {
     throw new Error(
       `[vite-plugin-mog] Invalid mode ${JSON.stringify(mode)}. ` +
         `Expected one of: ${Object.keys(modeExtensions).join(', ')}.`
@@ -216,15 +114,7 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
   // Whether a resolved `.mg` id carries `ext` — see configResolved.
   let appendExt = true;
 
-  type ParseResult = Awaited<ReturnType<typeof parseMog>>;
-  const parseCache = new Map<string, Promise<ParseResult>>();
-  // A `?metadata` import parses without a mode, so that it works whatever
-  // framework the document's embeds are for — which means a file can parse
-  // twice and report the same diagnostics twice. Diagnostics carry no position,
-  // so what is remembered per file revision is how many times each message has
-  // been shown: a second parse repeats nothing, yet two occurrences that read
-  // the same are still two warnings.
-  const warned = new Map<string, Map<string, number>>();
+  const parseCache = createParseCache(mode === 'metadata' ? undefined : mode, data);
   const embedModules = new Map<string, { basePath: string; index: number }>();
   // Until configResolved lands, the cwd is the best guess at the project root.
   let root = normalizePath(process.cwd());
@@ -235,61 +125,7 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
   }
 
   async function refreshComponents(): Promise<void> {
-    const dir = resolvedComponentDir();
-    const refreshed = dir ? await scanComponentDir(dir, mode) : new Map<string, string>();
-    for (const [name, importPath] of Object.entries(explicitComponents ?? {})) {
-      validateComponentName(name);
-      refreshed.set(name, componentImportPath(importPath, root));
-    }
-    components = refreshed;
-  }
-
-  type ParserMode = Parameters<typeof parseMog>[1];
-
-  function invalidateParse(filePath: string): void {
-    const path = normalizePath(filePath);
-    const prefix = `${path}\0`;
-    for (const key of parseCache.keys()) {
-      if (key.startsWith(prefix)) parseCache.delete(key);
-    }
-    warned.delete(path);
-  }
-
-  function cachedParse(
-    filePath: string,
-    parserMode: ParserMode,
-    warn: (message: string) => void
-  ): Promise<ParseResult> {
-    const path = normalizePath(filePath);
-    const key = `${path}\0${parserMode ?? ''}`;
-    let pending = parseCache.get(key);
-    if (!pending) {
-      const fresh: Promise<ParseResult> = readFile(path, 'utf-8')
-        .then(async content => {
-          const result = await parseMog(content, parserMode, data);
-          if (parseCache.get(key) !== fresh) return cachedParse(path, parserMode, warn);
-          const shown = warned.get(path) ?? new Map<string, number>();
-          const counts = new Map<string, number>();
-          for (const message of result.diagnostics ?? []) {
-            const count = (counts.get(message) ?? 0) + 1;
-            counts.set(message, count);
-            if (count <= (shown.get(message) ?? 0)) continue;
-            warned.set(path, shown.set(message, count));
-            warn(message);
-          }
-          return result;
-        })
-        .catch(error => {
-          if (parseCache.get(key) !== fresh) return cachedParse(path, parserMode, warn);
-          throw error;
-        });
-      pending = fresh;
-      parseCache.set(key, fresh);
-      void fresh.catch(() => {
-        if (parseCache.get(key) === fresh) parseCache.delete(key);
-      });
-    }
-    return pending;
+    components = await discoverComponents(root, resolvedComponentDir(), mode, explicitComponents);
   }
 
   function invalidateModules(
@@ -406,9 +242,7 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
     },
 
     async load(id: string) {
-      const parse = (filePath: string, parserMode: ParserMode) =>
-        cachedParse(filePath, parserMode, message => this.warn({ id: filePath, message }));
-      const parserMode = mode === 'metadata' ? undefined : mode;
+      const warn = (filePath: string) => (message: string) => this.warn({ id: filePath, message });
       const watch = (filePath: string) => this.addWatchFile?.(filePath);
 
       if (id === RESOLVED_VIRTUAL_CSS_ID) {
@@ -418,7 +252,7 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
       if (id.startsWith(RESOLVED_VIRTUAL_DOC_CSS_PREFIX) && id.endsWith('.css')) {
         const filePath = normalizePath(id.slice(RESOLVED_VIRTUAL_DOC_CSS_PREFIX.length, -4));
         watch(filePath);
-        const result = await parse(filePath, parserMode);
+        const result = await parseCache.render(filePath, warn(filePath));
         return result.embedCss ?? '';
       }
 
@@ -426,7 +260,7 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
       if (embedInfo) {
         const { basePath, index } = embedInfo;
         watch(basePath);
-        const result = await parse(basePath, parserMode);
+        const result = await parseCache.render(basePath, warn(basePath));
 
         const embed = result.embedComponents?.[index];
         if (!embed) {
@@ -438,7 +272,7 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
           code = `export default function MogEmbed() { return <>${code}</>; }`;
         }
 
-        return injectComponentImports(code, components, mode);
+        return injectComponentImports(code, components, mode, basePath);
       }
 
       const idWithoutQuery = cleanModuleId(id);
@@ -454,7 +288,10 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
 
       try {
         watch(basePath);
-        const result = await parse(basePath, outputMode === 'metadata' ? undefined : parserMode);
+        if (outputMode === 'metadata') {
+          return generateMetadata(await parseCache.metadata(basePath, warn(basePath)));
+        }
+        const result = await parseCache.render(basePath, warn(basePath));
         return generateOutput(outputMode, result, css, basePath);
       } catch (error) {
         this.error(`Failed to parse mog file ${basePath}: ${error}`);
@@ -471,9 +308,9 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
     },
 
     // `build --watch` never runs hotUpdate, and a dev server runs both — so the
-    // overlap here is deliberate. invalidateParse is idempotent.
+    // overlap here is deliberate. Invalidating a revision is idempotent.
     watchChange(id) {
-      if (id.endsWith('.mg')) invalidateParse(id);
+      if (id.endsWith('.mg')) parseCache.invalidate(id);
     },
 
     async hotUpdate(ctx) {
@@ -489,7 +326,7 @@ export function mogPlugin(options: MogPluginOptions): Plugin {
         return;
       }
 
-      if (file.endsWith('.mg')) invalidateParse(file);
+      if (file.endsWith('.mg')) parseCache.invalidate(file);
     },
   } satisfies Plugin;
 }

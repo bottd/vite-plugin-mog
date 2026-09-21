@@ -218,6 +218,19 @@ whatever the mode:
 import { metadata, toc } from './document.mg?metadata';
 ```
 
+Metadata imports collect the heading outline without rendering HTML or highlighting
+code. They report document and metadata warnings; output-specific warnings, such
+as dropped link schemes or invalid `data-*` keys, are reported when rendering.
+Embed declarations are still validated, so a misspelled embed language is an error.
+
+Build scripts can use the same path directly:
+
+```javascript
+import { parseMogMetadata } from 'vite-plugin-mog/parser';
+
+const { metadata, toc, diagnostics } = await parseMogMetadata(source);
+```
+
 ## Reading documents outside Vite
 
 A build script, a database job or a code generator wants the document, not HTML.
@@ -241,6 +254,28 @@ TypeScript narrows it without casts. A node's chain (`=hero:abrams:` gives
 Pass `{ unfolded: true }` to keep `attr` blocks in the tree as their own nodes
 rather than folding them into their owner.
 
+### Plain values
+
+The tree keeps KDL's shape, so `title "Patch"` arrives as a node with one
+argument rather than as the string `"Patch"`. Turning that into a plain value
+takes a rule — one argument is a scalar, several an array, properties or
+children an object, and a key set twice keeps its first value — and it is the
+same rule the `metadata` export uses.
+
+Rather than write it again, ask for it:
+
+```javascript
+const document = await parseMogAst(source, { plain: true });
+document.attributes.plain; // { title: 'Patch' }
+```
+
+`plain` appears beside `children` on every set of attributes, document and node
+alike, and is computed by the same Rust code `metadata` runs, so the two agree
+by construction — including the `__proto__` guard and integers wider than
+JavaScript can hold exactly. It is opt-in because it roughly doubles the
+attribute payload. Like the rest of the AST API, projection is silent; repeated
+keys remain available in `children`. Use `parseMogMetadata` for metadata diagnostics.
+
 ### Editing documents in place
 
 Every block-level node carries a `span`, and `attributes.blocks` holds the spans
@@ -250,6 +285,8 @@ the edit did not touch:
 
 - replace `attributes.blocks[0]` to rewrite an existing block;
 - insert after a marker's `fence` — its opening line alone — to add one.
+  `fence` is there exactly when the marker's `span` covers more than that line,
+  so `fence ?? span` is always the marker's own line.
 
 ```javascript
 const hero = document.body[0];

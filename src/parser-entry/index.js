@@ -14,6 +14,7 @@ import {
   buildId,
   version,
   parseMog,
+  parseMogMetadata,
   parseMogAstJson,
   getThemeCss,
   themeNames,
@@ -27,6 +28,8 @@ import { buildMismatch } from './check.js';
 const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
 
+const packageJson = () => require('../../package.json');
+
 // Where the loader would have found the binary. Only ever called to write an
 // error message, so it can afford to go looking.
 function binaryLocation() {
@@ -38,7 +41,7 @@ function binaryLocation() {
     // no dist/napi at all; fall through to the platform packages
   }
 
-  const { optionalDependencies = {} } = require('../../package.json');
+  const { optionalDependencies = {} } = packageJson();
   for (const name of Object.keys(optionalDependencies)) {
     try {
       return require.resolve(name);
@@ -52,7 +55,7 @@ function binaryLocation() {
 const mismatch = buildMismatch({
   expected: BUILD_ID,
   actual: buildId(),
-  packageVersion: require('../../package.json').version,
+  packageVersion: () => packageJson().version,
   binaryVersion: version(),
   locate: binaryLocation,
 });
@@ -69,4 +72,13 @@ export async function parseMogAst(content, options) {
   return JSON.parse(await parseMogAstJson(content, options));
 }
 
-export { parseMog, getThemeCss, themeNames, OutputMode, DataAttributesMode, version, buildId };
+export {
+  parseMog,
+  parseMogMetadata,
+  getThemeCss,
+  themeNames,
+  OutputMode,
+  DataAttributesMode,
+  version,
+  buildId,
+};

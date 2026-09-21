@@ -5,6 +5,12 @@
 //! version string cannot do this job: an unreleased local checkout and the
 //! published release whose binary it falls back to carry the same one.
 //!
+//! `Cargo.lock` stands in for the dependency tree, which covers `mog-parser`
+//! because it is pinned by git rev. Under the development `[patch]` in
+//! `Cargo.toml` it is a path dependency instead, which the lock records without
+//! a checksum — so editing the local parser changes neither digest. That is a
+//! development-only gap; a released build has no patch.
+//!
 //! FNV-1a rather than anything from `std`: `DefaultHasher` is explicitly not
 //! stable across Rust versions or platforms, and this digest has to match one
 //! computed in Node, on six different build hosts.
@@ -15,8 +21,9 @@ const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
 const PRIME: u64 = 0x0000_0100_0000_01b3;
 
 fn main() {
-    let mut files = sources(Path::new("src/parser"));
+    let mut files = sources(Path::new("src/parser")).expect("read parser sources");
     files.push(PathBuf::from("Cargo.lock"));
+    println!("cargo:rerun-if-changed=src/parser");
 
     // Sorted by the same spelling that is hashed, so the order cannot drift
     // from the one the JavaScript side produces.
@@ -32,7 +39,10 @@ fn main() {
         // The path goes in as well as the contents, so moving or renaming a
         // file changes the digest even when no byte of it does.
         digest(&mut hash, path.as_bytes());
-        digest(&mut hash, &std::fs::read(path).unwrap_or_default());
+        digest(
+            &mut hash,
+            &std::fs::read(path).expect("read build-id input"),
+        );
     }
 
     println!("cargo:rustc-env=MOG_BUILD_ID={hash:016x}");
@@ -45,20 +55,15 @@ fn digest(hash: &mut u64, bytes: &[u8]) {
     }
 }
 
-fn sources(dir: &Path) -> Vec<PathBuf> {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return Vec::new();
-    };
-
-    entries
-        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-        .flat_map(|path| match path.is_dir() {
-            true => sources(&path),
-            false => Vec::from_iter(
-                path.extension()
-                    .is_some_and(|extension| extension == "rs")
-                    .then_some(path),
-            ),
-        })
-        .collect()
+fn sources(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            files.extend(sources(&path)?);
+        } else if path.extension().is_some_and(|extension| extension == "rs") {
+            files.push(path);
+        }
+    }
+    Ok(files)
 }

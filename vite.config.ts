@@ -24,7 +24,14 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['vite', 'node:fs/promises', 'node:path', '@parser'],
+      external: [
+        'vite',
+        'node:fs/promises',
+        'node:path',
+        '@parser',
+        'svelte/compiler',
+        'vue/compiler-sfc',
+      ],
       output: {
         paths: {
           // Resolved relative to dist/plugin/index.js, where the bundle lands.

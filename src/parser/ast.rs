@@ -13,15 +13,19 @@ use mog_parser::{
     Attribute, Attributes, Delimiter, Document, MarkerKind, Node, NodeKind, Span, Value,
 };
 use serde::{Serialize, Serializer};
+use serde_json::{Map, Value as Json};
 
-/// JavaScript's exact-integer ceiling. A wider KDL integer crosses as a string
-/// rather than silently losing its low digits — the same rule `metadata` uses.
-const SAFE_INTEGER: i128 = 9_007_199_254_740_991;
-
-pub fn document(document: &Document) -> AstDocument<'_> {
+/// `plain` adds the projection `metadata` uses — one argument is a scalar,
+/// several an array, properties or children an object, first key wins — beside
+/// the structured attributes. Opt-in: it roughly doubles the attribute payload,
+/// and a consumer wants one form or the other.
+pub fn document(document: &Document, plain: bool) -> AstDocument<'_> {
     AstDocument {
-        attributes: document.attributes.as_deref().map(attributes),
-        body: document.body.iter().map(node).collect(),
+        attributes: document
+            .attributes
+            .as_deref()
+            .map(|owned| attributes(owned, plain)),
+        body: AstNodes(&document.body, plain),
     }
 }
 
@@ -50,7 +54,34 @@ impl From<&Span> for AstSpan {
 pub struct AstDocument<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     attributes: Option<AstAttributes<'a>>,
-    body: Vec<AstNode<'a>>,
+    body: AstNodes<'a>,
+}
+
+/// Serde consumes these borrowed sequences one item at a time. Only the plain
+/// projection allocates; there is no second recursive tree to build or drop.
+struct AstNodes<'a>(&'a [Node], bool);
+
+impl AstNodes<'_> {
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl Serialize for AstNodes<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(self.0.iter().map(|child| node(child, self.1)))
+    }
+}
+
+fn serialize_entries<S: Serializer>(
+    entries: &[Attribute],
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.collect_seq(entries.iter().map(attribute))
+}
+
+fn spans<S: Serializer>(spans: &[Span], serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.collect_seq(spans.iter().map(AstSpan::from))
 }
 
 #[derive(Serialize)]
@@ -59,8 +90,8 @@ struct AstNode<'a> {
     kind: AstKind<'a>,
     #[serde(skip_serializing_if = "Option::is_none")]
     attributes: Option<AstAttributes<'a>>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    children: Vec<AstNode<'a>>,
+    #[serde(skip_serializing_if = "AstNodes::is_empty")]
+    children: AstNodes<'a>,
     /// Absent on inline nodes — see `mog_parser::Node::span`.
     #[serde(skip_serializing_if = "Option::is_none")]
     span: Option<AstSpan>,
@@ -95,14 +126,24 @@ enum AstKind<'a> {
 
 #[derive(Serialize)]
 struct AstAttributes<'a> {
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    entries: Vec<AstAttribute<'a>>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    children: Vec<AstAttribute<'a>>,
+    #[serde(
+        skip_serializing_if = "<[Attribute]>::is_empty",
+        serialize_with = "serialize_entries"
+    )]
+    entries: &'a [Attribute],
+    #[serde(
+        skip_serializing_if = "<[Attribute]>::is_empty",
+        serialize_with = "serialize_entries"
+    )]
+    children: &'a [Attribute],
     /// Where the `` ``attr: `` blocks behind `children` are. Empty when none
     /// of them is spliceable — see `mog_parser::Attributes::blocks`.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    blocks: Vec<AstSpan>,
+    #[serde(skip_serializing_if = "<[Span]>::is_empty", serialize_with = "spans")]
+    blocks: &'a [Span],
+    /// `children` as plain values, by the same rule and the same code as
+    /// `metadata`. Present only when asked for.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    plain: Option<Map<String, Json>>,
 }
 
 #[derive(Serialize)]
@@ -132,14 +173,20 @@ enum AstValue<'a> {
         value: &'a str,
     },
     Node {
-        #[serde(skip_serializing_if = "Vec::is_empty")]
-        entries: Vec<AstAttribute<'a>>,
-        #[serde(skip_serializing_if = "Vec::is_empty")]
-        children: Vec<AstAttribute<'a>>,
+        #[serde(
+            skip_serializing_if = "<[Attribute]>::is_empty",
+            serialize_with = "serialize_entries"
+        )]
+        entries: &'a [Attribute],
+        #[serde(
+            skip_serializing_if = "<[Attribute]>::is_empty",
+            serialize_with = "serialize_entries"
+        )]
+        children: &'a [Attribute],
     },
 }
 
-fn node(node: &Node) -> AstNode<'_> {
+fn node(node: &Node, plain: bool) -> AstNode<'_> {
     AstNode {
         kind: match &node.kind {
             NodeKind::Marker(marker) => AstKind::Marker {
@@ -156,18 +203,23 @@ fn node(node: &Node) -> AstNode<'_> {
             NodeKind::Table => AstKind::Table,
             NodeKind::Text(text) => AstKind::Text { text },
         },
-        attributes: node.attributes.as_deref().map(attributes),
-        children: node.children.iter().map(self::node).collect(),
+        attributes: node
+            .attributes
+            .as_deref()
+            .map(|owned| attributes(owned, plain)),
+        children: AstNodes(&node.children, plain),
         span: node.span.as_ref().map(AstSpan::from),
         fence: node.fence.as_ref().map(AstSpan::from),
     }
 }
 
-fn attributes(attributes: &Attributes) -> AstAttributes<'_> {
+fn attributes(attributes: &Attributes, plain: bool) -> AstAttributes<'_> {
     AstAttributes {
-        entries: attributes.entries.iter().map(attribute).collect(),
-        children: attributes.children.iter().map(attribute).collect(),
-        blocks: attributes.blocks.iter().map(AstSpan::from).collect(),
+        entries: &attributes.entries,
+        children: &attributes.children,
+        blocks: &attributes.blocks,
+        // the same function `extract_metadata` calls, so the two cannot drift
+        plain: plain.then(|| crate::metadata::into_map(&attributes.children)),
     }
 }
 
@@ -187,16 +239,18 @@ fn value(value: &Value) -> AstValue<'_> {
         Value::Float(float) => AstValue::Float { value: *float },
         Value::String(string) => AstValue::String { value: string },
         Value::Node(node) => AstValue::Node {
-            entries: node.entries.iter().map(attribute).collect(),
-            children: node.children.iter().map(attribute).collect(),
+            entries: &node.entries,
+            children: &node.children,
         },
     }
 }
 
+/// Shares `metadata`'s rule: a wider KDL integer crosses as a string rather
+/// than silently losing its low digits.
 fn exact_integer<S: Serializer>(int: &i128, serializer: S) -> Result<S::Ok, S::Error> {
-    match int.unsigned_abs() <= SAFE_INTEGER as u128 {
-        true => serializer.serialize_i64(*int as i64),
-        false => serializer.serialize_str(&int.to_string()),
+    match crate::metadata::safe_integer(*int) {
+        Some(number) => serializer.serialize_i64(number),
+        None => serializer.serialize_str(&int.to_string()),
     }
 }
 

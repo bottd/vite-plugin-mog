@@ -1,5 +1,6 @@
 mod ast;
 mod diagnostics;
+mod document;
 mod embed;
 mod metadata;
 mod render;
@@ -34,6 +35,57 @@ pub struct MogParseResult {
     pub diagnostics: Option<Vec<String>>,
 }
 
+#[napi(object)]
+pub struct MogMetadataResult {
+    pub metadata: Map<String, Value>,
+    pub toc: Vec<TocEntry>,
+    /// Document and metadata warnings; output-specific warnings require rendering.
+    pub diagnostics: Vec<String>,
+}
+
+pub struct MetadataTask(String);
+
+impl Task for MetadataTask {
+    type Output = MogMetadataResult;
+    type JsValue = MogMetadataResult;
+
+    fn compute(&mut self) -> Result<Self::Output> {
+        parse_metadata_on_bounded_stack(&self.0).map_err(Error::from_reason)
+    }
+
+    fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
+        Ok(output)
+    }
+}
+
+/// Metadata and heading outline without HTML rendering or syntax highlighting.
+/// Embed declarations are validated, but their framework bodies are not rendered.
+#[napi(ts_return_type = "Promise<MogMetadataResult>")]
+pub fn parse_mog_metadata(content: String) -> AsyncTask<MetadataTask> {
+    AsyncTask::new(MetadataTask(content))
+}
+
+pub fn parse_metadata_on_bounded_stack(
+    content: &str,
+) -> std::result::Result<MogMetadataResult, String> {
+    on_bounded_stack(|| {
+        let document = mog_parser::parse(content);
+        let ((toc, metadata), diagnostics) = diagnostics::capture(|| {
+            document::check(&document.body);
+            (
+                document::outline(&document.body),
+                extract_metadata(document.attributes.as_deref()),
+            )
+        });
+        let toc = toc.map_err(|err| format!("{err}. Offending line: {}", err.offending_line()))?;
+        Ok(MogMetadataResult {
+            metadata,
+            toc,
+            diagnostics,
+        })
+    })
+}
+
 /// Runs a parse on a dedicated, bounded stack: inline resolution recurses per
 /// nesting level, and ordinary deep input must not abort the host process.
 pub fn on_bounded_stack<T: Send>(
@@ -50,14 +102,6 @@ pub fn on_bounded_stack<T: Send>(
             .join()
             .unwrap_or_else(|_| Err("Parser thread panicked".to_string()))
     })
-}
-
-pub fn parse_on_bounded_stack(
-    content: &str,
-    mode: Option<OutputMode>,
-    data: DataFilter,
-) -> std::result::Result<MogParseResult, String> {
-    on_bounded_stack(|| parse_mog_inner(content, mode, data))
 }
 
 pub struct ParseTask {
@@ -104,44 +148,53 @@ pub fn parse_mog(
     })
 }
 
-fn parse_mog_inner(
+pub fn parse_on_bounded_stack(
     content: &str,
     output_mode: Option<OutputMode>,
     data: DataFilter,
 ) -> std::result::Result<MogParseResult, String> {
-    let document = mog_parser::parse(content);
+    on_bounded_stack(|| {
+        let document = mog_parser::parse(content);
 
-    // Metadata extraction warns too, so it has to run inside the capture —
-    // stderr is invisible in a Vite worker.
-    let ((rendered, metadata), diagnostics) = diagnostics::capture(|| {
-        (
-            render(&document, output_mode, data),
-            extract_metadata(document.attributes.as_deref()),
-        )
-    });
-    let rendered =
-        rendered.map_err(|err| format!("{err}. Offending line: {}", err.offending_line()))?;
+        // Metadata extraction warns too, so it has to run inside the capture —
+        // stderr is invisible in a Vite worker.
+        let ((rendered, metadata), diagnostics) = diagnostics::capture(|| {
+            (
+                render(&document, output_mode, data),
+                extract_metadata(document.attributes.as_deref()),
+            )
+        });
+        let rendered =
+            rendered.map_err(|err| format!("{err}. Offending line: {}", err.offending_line()))?;
 
-    Ok(MogParseResult {
-        metadata,
-        segments: rendered.segments,
-        toc: rendered.toc,
-        embed_components: rendered.embeds,
-        embed_css: rendered.css,
-        diagnostics: Some(diagnostics),
+        Ok(MogParseResult {
+            metadata,
+            segments: rendered.segments,
+            toc: rendered.toc,
+            embed_components: rendered.embeds,
+            embed_css: rendered.css,
+            diagnostics: Some(diagnostics),
+        })
     })
 }
 
 #[napi(object)]
+#[derive(Default)]
 pub struct AstOptions {
     /// Keep `` ``attr: `` blocks in the tree as `attributes` nodes instead of
     /// folding them into their owner. Default is the folded tree.
     pub unfolded: Option<bool>,
+    /// Add a `plain` projection beside each `children`, by the same rule and the
+    /// same code `metadata` uses. Off by default: it roughly doubles the
+    /// attribute payload. Projection is silent; `parseMogMetadata` reports
+    /// diagnostics about repeated keys.
+    pub plain: Option<bool>,
 }
 
 pub struct AstTask {
     content: String,
     unfolded: bool,
+    plain: bool,
 }
 
 impl Task for AstTask {
@@ -149,24 +202,31 @@ impl Task for AstTask {
     type JsValue = String;
 
     fn compute(&mut self) -> Result<Self::Output> {
-        let unfolded = self.unfolded;
-        let content = std::mem::take(&mut self.content);
-
-        on_bounded_stack(move || {
-            let document = match unfolded {
-                true => mog_parser::parse_unfolded(&content),
-                false => mog_parser::parse(&content),
-            };
-
-            serde_json::to_string(&ast::document(&document))
-                .map_err(|error| format!("Failed to serialise the document: {error}"))
-        })
-        .map_err(Error::from_reason)
+        parse_ast_json(&self.content, self.unfolded, self.plain).map_err(Error::from_reason)
     }
 
     fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
         Ok(output)
     }
+}
+
+/// The tree as JSON, on the same bounded stack a render uses.
+pub fn parse_ast_json(
+    content: &str,
+    unfolded: bool,
+    plain: bool,
+) -> std::result::Result<String, String> {
+    on_bounded_stack(|| {
+        let document = match unfolded {
+            true => mog_parser::parse_unfolded(content),
+            false => mog_parser::parse(content),
+        };
+
+        // Projection is silent: the structured entries retain every value.
+        let json = diagnostics::silence(|| serde_json::to_string(&ast::document(&document, plain)));
+
+        json.map_err(|error| format!("Failed to serialise the document: {error}"))
+    })
 }
 
 /// The document as JSON, for callers that want the tree rather than HTML.
@@ -181,11 +241,12 @@ impl Task for AstTask {
     ts_return_type = "Promise<string>"
 )]
 pub fn parse_mog_ast_json(content: String, options: Option<AstOptions>) -> AsyncTask<AstTask> {
+    let options = options.unwrap_or_default();
+
     AsyncTask::new(AstTask {
         content,
-        unfolded: options
-            .and_then(|options| options.unfolded)
-            .unwrap_or(false),
+        unfolded: options.unfolded.unwrap_or(false),
+        plain: options.plain.unwrap_or(false),
     })
 }
 

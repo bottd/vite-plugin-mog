@@ -110,8 +110,9 @@ pub struct DataAttributes {
     pub keys: Option<Vec<String>>,
 }
 
-/// A node's `` ``attr: `` keys are filtered here and nowhere else, so adding a
-/// rendering site cannot quietly skip the option.
+/// A node's `` ``attr: `` keys are filtered by `Renderer::data_attrs` and
+/// nowhere else — every other emission site goes through it, so a new one
+/// cannot quietly skip the option.
 #[derive(Debug, Clone, Default)]
 pub enum DataFilter {
     /// Today's behaviour, and what the raw binding does when asked for nothing.
@@ -128,13 +129,6 @@ impl DataFilter {
             Self::None => false,
             Self::Allow(keys) => keys.contains(key),
         }
-    }
-
-    /// Whether any key can render. A document whose keys are all filtered out
-    /// must not warn about them either — the warnings describe output that no
-    /// longer exists.
-    pub fn is_none(&self) -> bool {
-        matches!(self, Self::None) || matches!(self, Self::Allow(keys) if keys.is_empty())
     }
 }
 

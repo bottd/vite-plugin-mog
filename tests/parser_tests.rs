@@ -1,6 +1,7 @@
 use insta::assert_yaml_snapshot;
 use std::fs;
 use vite_plugin_mog_parser::DataFilter;
+use vite_plugin_mog_parser::parse_metadata_on_bounded_stack;
 use vite_plugin_mog_parser::{
     MogParseResult, OutputMode, Segment, extract_metadata, parse_on_bounded_stack, render,
     segments_html,
@@ -30,6 +31,9 @@ fn fixture_files_render() {
         let rendered = render(&document, None, DataFilter::All)
             .unwrap_or_else(|_| panic!("failed to render {path}"));
         let metadata = extract_metadata(document.attributes.as_deref());
+        let summary = parse_metadata_on_bounded_stack(&content).unwrap();
+        assert_eq!(summary.metadata, metadata, "metadata differs for {path}");
+        assert_eq!(summary.toc, rendered.toc, "outline differs for {path}");
         assert_yaml_snapshot!(
             path,
             (
@@ -40,6 +44,49 @@ fn fixture_files_render() {
             )
         );
     }
+}
+
+#[test]
+fn metadata_only_keeps_document_warnings_without_rendering_warnings() {
+    let source = "``attr:\ntitle \"First\"\ntitle \"Second\"\n``\n\n# Setup\n# Setup\n\n[[javascript:alert(1)]]\n";
+    let summary = parse_metadata_on_bounded_stack(source).unwrap();
+    let rendered = parse(source);
+    assert_eq!(summary.toc, rendered.toc);
+    assert_eq!(summary.metadata, rendered.metadata);
+    assert_eq!(summary.diagnostics.len(), 1);
+    assert!(summary.diagnostics[0].contains("first value was kept"));
+    assert_eq!(rendered.diagnostics.unwrap().len(), 2);
+}
+
+#[test]
+fn metadata_only_validates_embed_ordinals_without_rendering_components() {
+    let source = "``embed:css:\n.foo {}\n``\n\n``embed:bogus:\ncontent\n``\n";
+    let error = parse_metadata_on_bounded_stack(source)
+        .err()
+        .expect("invalid embed");
+    assert!(error.contains("embed #2"), "{error}");
+    assert!(parse_metadata_on_bounded_stack("``embed:vue:\n<X/>\n``\n").is_ok());
+}
+
+#[test]
+fn empty_and_single_line_fenced_code_stay_blocks_inside_markers() {
+    for body in ["", "one\n", "one\ntwo\n"] {
+        let source = format!("-\n``text:\n{body}``\n-\n");
+        let html = segments_html(&parse(&source).segments);
+        assert!(html.contains("<li><pre>"), "{html}");
+    }
+}
+
+#[test]
+fn inline_embed_at_the_start_of_an_item_remains_code() {
+    let result = parse_on_bounded_stack(
+        "- ``embed:vue: <X/>``\n",
+        Some(OutputMode::svelte),
+        DataFilter::All,
+    )
+    .unwrap();
+    assert!(result.embed_components.is_empty());
+    assert!(segments_html(&result.segments).contains("<code>&lt;X/&gt;</code>"));
 }
 
 #[test]
@@ -138,4 +185,77 @@ fn each_unsafe_link_emits_one_diagnostic() {
         diagnostics[0].contains("unsafe URL scheme"),
         "{diagnostics:?}"
     );
+}
+
+/// `dist/parser/index.d.ts` is written by hand, because the tree crosses the
+/// boundary as JSON and there is no napi object for the type generator to
+/// describe. This fixture is what ties the two together: the TypeScript test
+/// walks the same document and checks every node against the declared shape.
+///
+/// So the fixture has to keep exercising everything. Adding a variant to
+/// `NodeKind`, `MarkerKind`, `Delimiter` or `Value` breaks the exhaustive
+/// matches in `src/parser/ast.rs`; when you fix those, add the new spelling
+/// here and to `tests/types/parser.ts`, and give the fixture something that
+/// produces it.
+#[test]
+fn the_variant_fixture_still_exercises_every_spelling_the_ast_can_emit() {
+    let content = std::fs::read_to_string("tests/fixtures/ast-variants.mg").unwrap();
+    let json = vite_plugin_mog_parser::parse_ast_json(&content, true, true).unwrap();
+
+    let expected = [
+        (
+            "kind",
+            [
+                "marker",
+                "delimiter",
+                "raw",
+                "link",
+                "attributes",
+                "paragraph",
+                "table",
+                "text",
+            ]
+            .as_slice(),
+        ),
+        (
+            "marker",
+            [
+                "heading",
+                "unordered-list",
+                "ordered-list",
+                "blockquote",
+                "free",
+            ]
+            .as_slice(),
+        ),
+        (
+            "delimiter",
+            [
+                "strong",
+                "italic",
+                "verbatim",
+                "strikethrough",
+                "table-header",
+                "table-row",
+                "table-cell",
+                "footnote",
+                "link",
+                "link-name",
+            ]
+            .as_slice(),
+        ),
+        (
+            "kind",
+            ["null", "bool", "int", "float", "string", "node"].as_slice(),
+        ),
+    ];
+
+    for (field, names) in expected {
+        for name in names {
+            assert!(
+                json.contains(&format!("\"{field}\":\"{name}\"")),
+                "the fixture no longer produces {field} {name:?}"
+            );
+        }
+    }
 }

@@ -1,5 +1,14 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`HTML Generator > generates correct output for ast-variants.mg 1`] = `
+"
+export const metadata = {"title":"Variants","flag":true,"ratio":1.5,"count":7,"nothing":null,"nested":{"inner":"x"}};
+export const html = "<h1 id=\\"heading-with-strong-italic-struck-and-code\\">Heading with <strong>strong</strong>, <em>italic</em>, <s>struck</s> and <code>code</code></h1>\\n<p>A paragraph with a <a href=\\"https://example.com\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">named link</a> and a note<sup class=\\"footnote-ref\\"><a href=\\"#footnote-1\\" id=\\"footnote-ref-1\\">1</a></sup>.</p>\\n<ul><li>unordered item</li></ul><ol><li>ordered item</li></ol><blockquote><p>quoted line</p></blockquote>\\n<table><tbody><tr><th>Header</th><th>Second</th></tr><tr><td>row</td><td>cell</td></tr></tbody></table>\\n<p>https://example.com/block</p>\\n<pre class=\\"arborium lang-python\\"><code><span class=\\"line\\"><a-f>print</a-f>(<a-s>&quot;raw&quot;</a-s>)</span></code></pre>\\n<div class=\\"free\\">\\n<h2 id=\\"inside-the-block\\">inside the block</h2>\\n</div>\\n<aside class=\\"footnotes\\"><ol><li id=\\"footnote-1\\">footnote body <a href=\\"#footnote-ref-1\\" class=\\"footnote-backref\\">&#x21a9;</a></li></ol></aside>\\n";
+export const toc = [{"level":1,"title":"Heading with strong, italic, struck and code","id":"heading-with-strong-italic-struck-and-code"},{"level":2,"title":"inside the block","id":"inside-the-block"}];
+
+export default { metadata, html, toc };"
+`;
+
 exports[`HTML Generator > generates correct output for basic.mg 1`] = `
 "
 export const metadata = {"title":"Basic Mog","author":"Drake Bott","tags":["test","basic"]};

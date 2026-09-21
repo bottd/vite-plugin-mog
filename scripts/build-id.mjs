@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 /**
  * The digest `build.rs` stamps into the native binary, recomputed here.
@@ -20,11 +20,9 @@ function digest(hash, bytes) {
 }
 
 function sources(dir, root) {
-  return readdirSync(join(root, dir), { withFileTypes: true }).flatMap(entry => {
-    const path = `${dir}/${entry.name}`;
-    if (entry.isDirectory()) return sources(path, root);
-    return entry.name.endsWith('.rs') ? [path] : [];
-  });
+  return readdirSync(join(root, dir), { recursive: true, withFileTypes: true })
+    .filter(entry => !entry.isDirectory() && entry.name.endsWith('.rs'))
+    .map(entry => relative(root, join(entry.parentPath, entry.name)).replaceAll('\\', '/'));
 }
 
 export function buildId(root) {

@@ -37,18 +37,14 @@ it('renders a document with attr blocks exactly as one without them', async () =
   );
 });
 
-it('renders every key when asked to', async () => {
-  const code = await render(WITH_BLOCKS, true);
+it.each([
+  [true, ['data-impact', 'data-size'], []],
+  [['impact'], ['data-impact'], ['data-size']],
+] as const)('renders %s as the keys it selects', async (option, present, absent) => {
+  const code = await render(WITH_BLOCKS, option as MogPluginOptions['dataAttributes']);
 
-  expect(code).toContain('data-impact');
-  expect(code).toContain('data-size');
-});
-
-it('selects by top-level key', async () => {
-  const code = await render(WITH_BLOCKS, ['impact']);
-
-  expect(code).toContain('data-impact');
-  expect(code).not.toContain('data-size');
+  for (const name of present) expect(code).toContain(name);
+  for (const name of absent) expect(code).not.toContain(name);
 });
 
 it('leaves root-level attr blocks as metadata whatever the option', async () => {

@@ -6,6 +6,7 @@
 export type {
   DataAttributes,
   MogParseResult,
+  MogMetadataResult,
   Segment,
   DataAttr,
   ContainerTag,
@@ -14,15 +15,14 @@ export type {
 } from '../napi/index.js';
 export {
   parseMog,
+  parseMogMetadata,
   getThemeCss,
   themeNames,
   OutputMode,
   DataAttributesMode,
+  version,
+  buildId,
 } from '../napi/index.js';
-
-/** This package's version, and the digest of the tree the binary was built from. */
-export declare function version(): string;
-export declare function buildId(): string;
 
 /**
  * A node's position in the source string.
@@ -91,6 +91,17 @@ export interface MogAttributes {
   entries?: MogAttribute[];
   children?: MogAttribute[];
   /**
+   * `children` as plain values — one argument is a scalar, several an array,
+   * properties or children an object, and a key set twice keeps its first
+   * value. This is the projection `metadata` exports, computed by the same Rust
+   * code, so the two agree by construction.
+   *
+   * Present only when `parseMogAst` was given `{ plain: true }`. It roughly
+   * doubles the attribute payload. Projection is silent; use `parseMogMetadata`
+   * for diagnostics about repeated keys.
+   */
+  plain?: Record<string, unknown>;
+  /**
    * Where the `` ``attr: `` blocks behind `children` are, in source order —
    * what a tool replaces to rewrite them. Several blocks merge into one owner,
    * so this is a list.
@@ -112,9 +123,11 @@ interface MogNodeBase {
    */
   span?: MogSpan;
   /**
-   * A marker's opening fence line alone, where that differs from `span` —
-   * "insert directly after the fence" is the one position an editor needs that
-   * is not a node boundary.
+   * A marker's opening line alone — `=hero:` out of `=hero: … =`.
+   * "Insert directly after the fence" is the one position an editor needs that
+   * is not a node boundary. A single-line marker also carries this when its
+   * `span` grows over attached attribute blocks; otherwise `span` is enough —
+   * so `fence ?? span` is always the marker's own line.
    */
   fence?: MogSpan;
 }
@@ -135,13 +148,8 @@ export interface MogDocument {
   body: MogNode[];
 }
 
-export interface MogAstOptions {
-  /**
-   * Keep `` ``attr: `` blocks in the tree as `attributes` nodes instead of
-   * folding them into their owner. Default is the folded tree.
-   */
-  unfolded?: boolean;
-}
+/** Generated from the `#[napi(object)]` in the Rust source, so it cannot drift. */
+export type MogAstOptions = import('../napi/index.js').AstOptions;
 
 /**
  * Parses a Mog document to its tree. Renders nothing: no highlighting, no embed
