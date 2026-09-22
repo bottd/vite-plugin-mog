@@ -27,7 +27,7 @@ htmlescape = "=0.3.1"
 #
 # Pinned by rev, not `branch = "attr"`, so the parser only moves when this line
 # does. Bump this rev deliberately.
-mog-parser = { git = "https://github.com/bottd/mog.git", rev = "57b31bfb390982f1b6ec0cb138727b40697c6f31" }
+mog-parser = { git = "https://github.com/bottd/mog.git", rev = "1c47a9a01eb79c79f9921d6eeb31d78882b56b20" }
 arborium = { version = "=2.18.1", features = ["all-languages"] }
 
 [dev-dependencies]
